@@ -1,0 +1,15 @@
+using LogRogue.Core.Archiving;
+using LogRogue.Core.Scanning;
+
+namespace LogRogue.Core;
+
+/// <summary>
+/// 압축 진행 상황 한 건.
+/// Result가 null이면 해당 날짜 압축을 막 시작한 것이고,
+/// null이 아니면 그 날짜 처리가 끝난 것이다.
+/// </summary>
+public sealed record BackupProgress(
+    int Index,
+    int Total,
+    LogDayFolder Folder,
+    ArchiveResult? Result);

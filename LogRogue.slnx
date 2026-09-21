@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="LogRogue.App/LogRogue.App.csproj" />
+  <Project Path="LogRogue.Core.Tests/LogRogue.Core.Tests.csproj" />
+  <Project Path="LogRogue.Core/LogRogue.Core.csproj" />
+</Solution>

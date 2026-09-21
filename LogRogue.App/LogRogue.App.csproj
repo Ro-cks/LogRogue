@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>LogRogue</AssemblyName>
+    <Company>Famecs</Company>
+    <Product>LogRogue</Product>
+    <Description>로그 백업 유틸리티</Description>
+    <Copyright>Copyright © 2026 Famecs</Copyright>
+    <Version>0.1.0</Version>
+    <Authors>hwjung</Authors>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LogRogue.Core\LogRogue.Core.csproj" />
+  </ItemGroup>
+
+</Project>
