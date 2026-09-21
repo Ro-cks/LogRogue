@@ -1,11 +1,13 @@
 using System.ComponentModel;
+using LogRogue.Core;
 using LogRogue.Core.Archiving;
+using LogRogue.Core.Deletion;
 using LogRogue.Core.Scanning;
 
 namespace LogRogue.App;
 
 /// <summary>
-/// 압축을 시작하기 전에 대상 날짜 폴더 목록을 보여주고 확인받는 창.
+/// 압축을 시작하기 전에 대상 날짜 폴더 목록과 삭제 방식을 보여주고 확인받는 창.
 /// [압축 시작]을 누르면 DialogResult.OK, [취소]나 창 닫기는 DialogResult.Cancel.
 ///
 /// 디자이너 없이 코드로만 만든 창이다.
@@ -14,7 +16,7 @@ namespace LogRogue.App;
 [DesignerCategory("Code")]
 public sealed class PreviewForm : Form
 {
-    public PreviewForm(IReadOnlyList<LogDayFolder> targets, string outputDirectory)
+    public PreviewForm(BackupPlan plan, DeleteMode deleteMode)
     {
         SuspendLayout();
 
@@ -24,56 +26,103 @@ public sealed class PreviewForm : Form
 
         Text = "압축 대상 확인";
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(640, 420);
-        MinimumSize = new Size(480, 320);
+        ClientSize = new Size(640, 440);
+        MinimumSize = new Size(480, 340);
         MinimizeBox = false;
         MaximizeBox = false;
         ShowInTaskbar = false;
         Padding = new Padding(12);
 
         int existingCount = 0;
-        ListView list = CreateList(targets, outputDirectory, ref existingCount);
-        Label summary = CreateSummary(targets, outputDirectory, existingCount);
-        FlowLayoutPanel buttons = CreateButtons(out Button startButton, out Button cancelButton);
+        ListView list = CreateList(plan, ref existingCount);
+        Label summary = CreateSummary(plan, existingCount);
+        Label? warning = CreateDeleteWarning(deleteMode);
+        FlowLayoutPanel buttons = CreateButtons(deleteMode, out Button startButton, out Button cancelButton);
 
         // Dock 배치는 나중에 추가한 것부터 가장자리에 붙는다.
         // 목록(Fill)을 먼저 넣어야 위아래를 뺀 나머지 공간을 채운다.
+        // 위쪽은 summary가 warning보다 나중에 들어가야 맨 위에 온다.
         Controls.Add(list);
+        if (warning is not null)
+            Controls.Add(warning);
         Controls.Add(summary);
         Controls.Add(buttons);
 
-        AcceptButton = startButton;   // Enter 키 = 압축 시작
-        CancelButton = cancelButton;  // Esc 키 = 취소
+        CancelButton = cancelButton;   // Esc 키 = 취소
+
+        if (deleteMode == DeleteMode.Permanent)
+        {
+            // 영구 삭제일 때는 Enter를 잘못 눌러 바로 시작되지 않도록
+            // Enter 키 연결을 하지 않고, 처음 포커스도 취소 버튼에 둔다
+            ActiveControl = cancelButton;
+        }
+        else
+        {
+            AcceptButton = startButton;   // Enter 키 = 시작
+        }
 
         ResumeLayout(false);
         PerformLayout();
     }
 
-    private static Label CreateSummary(
-        IReadOnlyList<LogDayFolder> targets, string outputDirectory, int existingCount)
+    private static Label CreateSummary(BackupPlan plan, int existingCount)
     {
+        IReadOnlyList<LogDayFolder> targets = plan.Targets;
         int totalFiles = targets.Sum(t => t.FileCount);
         long totalBytes = targets.Sum(t => t.TotalBytes);
 
         string text =
             $"{targets[0].Date:yyyy-MM-dd} ~ {targets[^1].Date:yyyy-MM-dd}  ·  " +
             $"{targets.Count}일  ·  파일 {totalFiles}개  ·  {ByteSize.ToDisplay(totalBytes)}\n" +
-            $"저장 위치: {outputDirectory}";
+            $"저장 위치: {plan.OutputDirectory}";
 
         if (existingCount > 0)
-            text += $"\n※ 이미 압축 파일이 있는 날짜 {existingCount}개는 새 파일로 교체됩니다.";
+        {
+            text += $"\n※ 이미 압축 파일이 있는 날짜 {existingCount}개: " +
+                    "기존 내용을 모두 포함하면 교체하고, 아니면 번호를 붙여 따로 저장합니다.";
+        }
 
         return new Label
         {
             Text = text,
             Dock = DockStyle.Top,
             AutoSize = true,
+            Padding = new Padding(0, 0, 0, 8)
+        };
+    }
+
+    private static Label? CreateDeleteWarning(DeleteMode deleteMode)
+    {
+        string? text = deleteMode switch
+        {
+            DeleteMode.RecycleBin =>
+                "원본 삭제: 휴지통으로 이동\n" +
+                "압축과 검증에 성공한 날짜 폴더는 휴지통으로 이동합니다. " +
+                "휴지통을 비우기 전까지 디스크 공간은 확보되지 않습니다.",
+
+            DeleteMode.Permanent =>
+                "원본 삭제: 영구 삭제\n" +
+                "압축과 검증에 성공한 날짜 폴더는 영구 삭제됩니다. " +
+                "되돌리려면 압축 파일에서 복원해야 합니다.",
+
+            _ => null
+        };
+
+        if (text is null)
+            return null;
+
+        return new Label
+        {
+            Text = text,
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            MaximumSize = new Size(600, 0),   // 긴 문장이 창 폭에서 줄바꿈되도록
+            ForeColor = deleteMode == DeleteMode.Permanent ? Color.Firebrick : Color.DarkOrange,
             Padding = new Padding(0, 0, 0, 10)
         };
     }
 
-    private static ListView CreateList(
-        IReadOnlyList<LogDayFolder> targets, string outputDirectory, ref int existingCount)
+    private static ListView CreateList(BackupPlan plan, ref int existingCount)
     {
         var list = new ListView
         {
@@ -87,14 +136,14 @@ public sealed class PreviewForm : Form
         list.Columns.Add("날짜", 100);
         list.Columns.Add("파일 수", 70, HorizontalAlignment.Right);
         list.Columns.Add("용량", 90, HorizontalAlignment.Right);
-        list.Columns.Add("비고", 110);
-        list.Columns.Add("경로", 240);
+        list.Columns.Add("비고", 100);
+        list.Columns.Add("경로", 250);
 
         list.BeginUpdate();
 
-        foreach (LogDayFolder folder in targets)
+        foreach (LogDayFolder folder in plan.Targets)
         {
-            bool exists = File.Exists(DayFolderArchiver.GetArchivePath(folder, outputDirectory));
+            bool exists = File.Exists(DayFolderArchiver.GetArchivePath(folder, plan.OutputDirectory));
             if (exists)
                 existingCount++;
 
@@ -103,7 +152,7 @@ public sealed class PreviewForm : Form
                 folder.Date.ToString("yyyy-MM-dd"),
                 $"{folder.FileCount}개",
                 ByteSize.ToDisplay(folder.TotalBytes),
-                exists ? "기존 파일 교체" : "",
+                exists ? "기존 zip 있음" : "",
                 folder.Path
             });
 
@@ -117,14 +166,15 @@ public sealed class PreviewForm : Form
         return list;
     }
 
-    private static FlowLayoutPanel CreateButtons(out Button startButton, out Button cancelButton)
+    private static FlowLayoutPanel CreateButtons(
+        DeleteMode deleteMode, out Button startButton, out Button cancelButton)
     {
         startButton = new Button
         {
-            Text = "압축 시작",
+            Text = deleteMode == DeleteMode.None ? "압축 시작" : "압축 후 삭제",
             DialogResult = DialogResult.OK,
             AutoSize = true,
-            MinimumSize = new Size(90, 28)
+            MinimumSize = new Size(100, 28)
         };
 
         cancelButton = new Button

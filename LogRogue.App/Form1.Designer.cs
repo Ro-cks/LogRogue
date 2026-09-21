@@ -43,12 +43,13 @@
             lblStatus = new Label();
             folderDialog = new FolderBrowserDialog();
             lvResults = new ListView();
+            cboDeleteMode = new ComboBox();
             SuspendLayout();
             // 
             // labelSource
             // 
             labelSource.AutoSize = true;
-            labelSource.Location = new Point(124, 106);
+            labelSource.Location = new Point(145, 41);
             labelSource.Name = "labelSource";
             labelSource.Size = new Size(59, 15);
             labelSource.TabIndex = 0;
@@ -56,14 +57,14 @@
             // 
             // txtSourcePath
             // 
-            txtSourcePath.Location = new Point(198, 103);
+            txtSourcePath.Location = new Point(219, 38);
             txtSourcePath.Name = "txtSourcePath";
             txtSourcePath.Size = new Size(356, 23);
             txtSourcePath.TabIndex = 1;
             // 
             // btnBrowseSource
             // 
-            btnBrowseSource.Location = new Point(560, 102);
+            btnBrowseSource.Location = new Point(581, 37);
             btnBrowseSource.Name = "btnBrowseSource";
             btnBrowseSource.Size = new Size(75, 23);
             btnBrowseSource.TabIndex = 2;
@@ -73,7 +74,7 @@
             // 
             // btnBrowseOutput
             // 
-            btnBrowseOutput.Location = new Point(560, 131);
+            btnBrowseOutput.Location = new Point(581, 66);
             btnBrowseOutput.Name = "btnBrowseOutput";
             btnBrowseOutput.Size = new Size(75, 23);
             btnBrowseOutput.TabIndex = 5;
@@ -83,7 +84,7 @@
             // 
             // txtOutputPath
             // 
-            txtOutputPath.Location = new Point(198, 132);
+            txtOutputPath.Location = new Point(219, 67);
             txtOutputPath.Name = "txtOutputPath";
             txtOutputPath.Size = new Size(356, 23);
             txtOutputPath.TabIndex = 4;
@@ -91,7 +92,7 @@
             // labelOutput
             // 
             labelOutput.AutoSize = true;
-            labelOutput.Location = new Point(124, 135);
+            labelOutput.Location = new Point(145, 70);
             labelOutput.Name = "labelOutput";
             labelOutput.Size = new Size(59, 15);
             labelOutput.TabIndex = 3;
@@ -99,14 +100,14 @@
             // 
             // dtpEndDate
             // 
-            dtpEndDate.Location = new Point(435, 196);
+            dtpEndDate.Location = new Point(456, 131);
             dtpEndDate.Name = "dtpEndDate";
             dtpEndDate.Size = new Size(200, 23);
             dtpEndDate.TabIndex = 6;
             // 
             // dtpStartDate
             // 
-            dtpStartDate.Location = new Point(124, 196);
+            dtpStartDate.Location = new Point(145, 131);
             dtpStartDate.Name = "dtpStartDate";
             dtpStartDate.Size = new Size(200, 23);
             dtpStartDate.TabIndex = 7;
@@ -114,7 +115,7 @@
             // labelStartDate
             // 
             labelStartDate.AutoSize = true;
-            labelStartDate.Location = new Point(124, 178);
+            labelStartDate.Location = new Point(145, 113);
             labelStartDate.Name = "labelStartDate";
             labelStartDate.Size = new Size(43, 15);
             labelStartDate.TabIndex = 8;
@@ -123,7 +124,7 @@
             // labelEndDate
             // 
             labelEndDate.AutoSize = true;
-            labelEndDate.Location = new Point(435, 178);
+            labelEndDate.Location = new Point(456, 113);
             labelEndDate.Name = "labelEndDate";
             labelEndDate.Size = new Size(43, 15);
             labelEndDate.TabIndex = 9;
@@ -132,7 +133,7 @@
             // chkDeleteSource
             // 
             chkDeleteSource.AutoSize = true;
-            chkDeleteSource.Location = new Point(476, 242);
+            chkDeleteSource.Location = new Point(370, 176);
             chkDeleteSource.Name = "chkDeleteSource";
             chkDeleteSource.Size = new Size(78, 19);
             chkDeleteSource.TabIndex = 10;
@@ -141,7 +142,7 @@
             // 
             // btnRun
             // 
-            btnRun.Location = new Point(560, 239);
+            btnRun.Location = new Point(581, 174);
             btnRun.Name = "btnRun";
             btnRun.Size = new Size(75, 23);
             btnRun.TabIndex = 11;
@@ -152,7 +153,7 @@
             // lblStatus
             // 
             lblStatus.AutoSize = true;
-            lblStatus.Location = new Point(322, 264);
+            lblStatus.Location = new Point(343, 199);
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(39, 15);
             lblStatus.TabIndex = 12;
@@ -160,17 +161,26 @@
             // 
             // lvResults
             // 
-            lvResults.Location = new Point(124, 282);
+            lvResults.Location = new Point(145, 252);
             lvResults.Name = "lvResults";
             lvResults.Size = new Size(511, 162);
             lvResults.TabIndex = 13;
             lvResults.UseCompatibleStateImageBehavior = false;
+            // 
+            // cboDeleteMode
+            // 
+            cboDeleteMode.FormattingEnabled = true;
+            cboDeleteMode.Location = new Point(454, 174);
+            cboDeleteMode.Name = "cboDeleteMode";
+            cboDeleteMode.Size = new Size(121, 23);
+            cboDeleteMode.TabIndex = 14;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
+            Controls.Add(cboDeleteMode);
             Controls.Add(lvResults);
             Controls.Add(lblStatus);
             Controls.Add(btnRun);
@@ -208,5 +218,6 @@
         private Label lblStatus;
         private FolderBrowserDialog folderDialog;
         private ListView lvResults;
+        private ComboBox cboDeleteMode;
     }
 }

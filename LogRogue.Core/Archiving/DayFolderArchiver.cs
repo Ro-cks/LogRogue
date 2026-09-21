@@ -81,11 +81,10 @@ public sealed class DayFolderArchiver
             VerifyArchive(tempPath, expected);
 
             // 검증을 통과한 뒤에야 최종 파일로 바꾼다.
-            // 같은 이름의 압축 파일이 이미 있으면 새로 검증된 것으로 교체한다.
-            // 원본 폴더가 아직 남아 있다면 그 내용이 가장 최신이기 때문이다.
-            File.Move(tempPath, finalPath, overwrite: true);
+            string destination = ChooseDestination(finalPath, expected);
+            File.Move(tempPath, destination, overwrite: true);
 
-            return ArchiveResult.Success(folder, finalPath, new FileInfo(finalPath).Length);
+            return ArchiveResult.Success(folder, destination, new FileInfo(destination).Length);
         }
         catch (Exception ex)
         {
@@ -114,6 +113,62 @@ public sealed class DayFolderArchiver
         }
 
         return files;
+    }
+
+    /// <summary>
+    /// 같은 날짜의 압축 파일이 이미 있을 때 어디에 저장할지 정한다.
+    ///
+    /// 새 압축본이 기존 압축본의 파일을 전부 포함하면 기존 것을 교체한다. (단순 재실행)
+    /// 하나라도 빠져 있으면 기존 것은 그대로 두고 번호를 붙여 따로 저장한다.
+    ///
+    /// 후자는 이전 실행에서 원본 삭제가 도중에 실패해 일부 파일만 남은 경우다.
+    /// 이때 교체해버리면 이미 삭제된 파일들이 들어 있던 유일한 압축본이 사라진다.
+    /// </summary>
+    private static string ChooseDestination(string finalPath, Dictionary<string, SourceFile> newContents)
+    {
+        if (!File.Exists(finalPath))
+            return finalPath;
+
+        if (ContainsEverythingFrom(finalPath, newContents))
+            return finalPath;
+
+        string directory = Path.GetDirectoryName(finalPath)!;
+        string baseName = Path.GetFileNameWithoutExtension(finalPath);
+
+        for (int n = 2; ; n++)
+        {
+            string candidate = Path.Combine(directory, $"{baseName}_{n}.zip");
+            if (!File.Exists(candidate))
+                return candidate;
+        }
+    }
+
+    /// <summary>기존 압축 파일의 모든 항목이 새 내용에 같은 크기로 들어 있는지 확인한다.</summary>
+    private static bool ContainsEverythingFrom(string existingZipPath, Dictionary<string, SourceFile> newContents)
+    {
+        try
+        {
+            using ZipArchive existing = ZipFile.OpenRead(existingZipPath);
+
+            foreach (ZipArchiveEntry entry in existing.Entries)
+            {
+                if (entry.Name.Length == 0)
+                    continue;   // 폴더 항목
+
+                if (!newContents.TryGetValue(entry.FullName, out SourceFile? source) ||
+                    source.Length != entry.Length)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            // 기존 파일을 읽을 수 없으면 판단할 수 없으니 건드리지 않는다
+            return false;
+        }
     }
 
     private void WriteArchive(string zipPath, Dictionary<string, SourceFile> files)
