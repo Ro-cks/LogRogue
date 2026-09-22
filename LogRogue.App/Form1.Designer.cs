@@ -44,6 +44,7 @@
             folderDialog = new FolderBrowserDialog();
             lvResults = new ListView();
             cboDeleteMode = new ComboBox();
+            chkAutoStart = new CheckBox();
             SuspendLayout();
             // 
             // labelSource
@@ -175,11 +176,22 @@
             cboDeleteMode.Size = new Size(121, 23);
             cboDeleteMode.TabIndex = 14;
             // 
+            // chkAutoStart
+            // 
+            chkAutoStart.AutoSize = true;
+            chkAutoStart.Location = new Point(481, 12);
+            chkAutoStart.Name = "chkAutoStart";
+            chkAutoStart.Size = new Size(175, 19);
+            chkAutoStart.TabIndex = 15;
+            chkAutoStart.Text = "Windows 시작 시 자동 실행";
+            chkAutoStart.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
+            Controls.Add(chkAutoStart);
             Controls.Add(cboDeleteMode);
             Controls.Add(lvResults);
             Controls.Add(lblStatus);
@@ -219,5 +231,6 @@
         private FolderBrowserDialog folderDialog;
         private ListView lvResults;
         private ComboBox cboDeleteMode;
+        private CheckBox chkAutoStart;
     }
 }

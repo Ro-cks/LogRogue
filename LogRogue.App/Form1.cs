@@ -2,12 +2,26 @@ using LogRogue.Core;
 using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
 using LogRogue.Core.Scanning;
+using LogRogue.Core.Settings;
+using LogRogue.Core.Startup;
 
 namespace LogRogue.App;
 
 public partial class Form1 : Form
 {
     private readonly BackupJob _job = new();
+    private readonly SettingsStore _settingsStore = new();
+
+    /// <summary>스캔·압축·삭제 중인지. 종료 확인에 쓴다.</summary>
+    private bool _isRunning;
+
+    /// <summary>확인 창이나 폴더 선택 창이 떠 있는지. 트레이 메뉴 동작을 막는 데 쓴다.</summary>
+    private bool _dialogOpen;
+
+    private AutoStartRegistration? _autoStart;
+
+    /// <summary>코드에서 체크박스 값을 바꾸는 중인지. 이때는 레지스트리를 건드리지 않는다.</summary>
+    private bool _updatingAutoStartCheckbox;
 
     /// <summary>삭제 방식 콤보박스 항목. ComboBox는 ToString() 결과를 화면에 보여준다.</summary>
     private sealed record DeleteOption(string Text, DeleteMode Mode)
@@ -15,8 +29,14 @@ public partial class Form1 : Form
         public override string ToString() => Text;
     }
 
-    public Form1()
+    /// <summary>디자이너가 사용하는 기본 생성자.</summary>
+    public Form1() : this(startInTray: false) { }
+
+    /// <param name="startInTray">true면 창을 띄우지 않고 트레이에만 뜬다. (부팅 자동 실행)</param>
+    public Form1(bool startInTray)
     {
+        _startHidden = startInTray;   // InitializeComponent보다 먼저 정해야 창이 번쩍 떴다 사라지지 않는다
+
         InitializeComponent();
 
         // 기본 기간: 30일 전부터 어제까지
@@ -26,6 +46,148 @@ public partial class Form1 : Form
         lblStatus.Text = "";
         SetupDeleteOptions();
         SetupResultList();
+        SetupTray();   // Form1.Tray.cs
+
+        // 콤보박스 항목이 채워진 뒤에 설정을 적용해야 삭제 방식을 고를 수 있다
+        LoadSettings();
+        SetupAutoStart();
+    }
+
+    // ── 부팅 시 자동 실행 ────────────────────────────────
+    // 자동 실행 여부는 설정 파일이 아니라 레지스트리에 있는 값이 기준이다.
+    // 사용자가 작업 관리자에서 직접 끌 수도 있으므로 매번 레지스트리를 읽어 화면에 반영한다.
+
+    private void SetupAutoStart()
+    {
+        string? exePath = Environment.ProcessPath;
+        if (exePath is null)
+        {
+            chkAutoStart.Enabled = false;
+            return;
+        }
+
+        _autoStart = new AutoStartRegistration(AppName, exePath);
+        RefreshAutoStartCheckbox();
+
+        chkAutoStart.CheckedChanged += (_, _) => OnAutoStartToggled();
+    }
+
+    private void OnAutoStartToggled()
+    {
+        if (_updatingAutoStartCheckbox || _autoStart is null)
+            return;
+
+        try
+        {
+            if (chkAutoStart.Checked)
+                _autoStart.Enable();
+            else
+                _autoStart.Disable();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            ShowStatus($"자동 실행 설정을 바꾸지 못했습니다: {ex.Message}", Color.Firebrick);
+        }
+
+        AutoStartState state = RefreshAutoStartCheckbox();
+
+        if (state == AutoStartState.On)
+            ShowStatus("Windows에 로그인하면 트레이에서 자동으로 실행됩니다.", Color.Black);
+        else if (state == AutoStartState.Off)
+            ShowStatus("자동 실행을 해제했습니다.", Color.DimGray);
+    }
+
+    /// <summary>레지스트리의 실제 상태를 읽어 체크박스에 반영하고, 문제가 있으면 알린다.</summary>
+    private AutoStartState RefreshAutoStartCheckbox()
+    {
+        AutoStartState state;
+        try
+        {
+            state = _autoStart!.GetState();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            chkAutoStart.Enabled = false;
+            ShowStatus($"자동 실행 상태를 확인하지 못했습니다: {ex.Message}", Color.DarkOrange);
+            return AutoStartState.Off;
+        }
+
+        _updatingAutoStartCheckbox = true;
+        chkAutoStart.Checked = state is AutoStartState.On or AutoStartState.BlockedByWindows;
+        _updatingAutoStartCheckbox = false;
+
+        if (state == AutoStartState.OnElsewhere)
+        {
+            ShowStatus(
+                $"자동 실행이 다른 위치의 LogRogue로 등록되어 있습니다: {_autoStart.GetRegisteredPath()}\n" +
+                "체크하면 지금 실행 중인 위치로 바뀝니다.",
+                Color.DarkOrange);
+        }
+        else if (state == AutoStartState.BlockedByWindows)
+        {
+            ShowStatus(
+                "Windows 시작 앱 설정에서 LogRogue가 꺼져 있어 자동 실행되지 않습니다.\n" +
+                "작업 관리자 → 시작 앱에서 LogRogue를 사용으로 바꾸세요.",
+                Color.DarkOrange);
+        }
+
+        return state;
+    }
+
+    // ── 설정 저장·불러오기 ───────────────────────────────
+
+    private void LoadSettings()
+    {
+        SettingsLoadResult loaded = _settingsStore.Load();
+        ApplySettings(loaded.Settings);
+
+        if (loaded.Warning is not null)
+            ShowStatus(loaded.Warning, Color.DarkOrange);
+    }
+
+    private void ApplySettings(AppSettings settings)
+    {
+        txtSourcePath.Text = settings.SourcePath;
+        txtOutputPath.Text = settings.OutputPath;
+
+        foreach (object item in cboDeleteMode.Items)
+        {
+            if (item is DeleteOption option && option.Mode == settings.DeleteMode)
+            {
+                cboDeleteMode.SelectedItem = item;
+                break;
+            }
+        }
+
+        // 체크 상태를 바꾸면 CheckedChanged가 불려 콤보박스 활성 상태도 같이 맞춰진다
+        chkDeleteSource.Checked = settings.DeleteSource;
+    }
+
+    /// <summary>지금 화면에 입력된 값으로 설정 객체를 만든다.</summary>
+    private AppSettings CollectSettings() => new()
+    {
+        SourcePath = txtSourcePath.Text.Trim(),
+        OutputPath = txtOutputPath.Text.Trim(),
+        DeleteSource = chkDeleteSource.Checked,
+        DeleteMode = cboDeleteMode.SelectedItem is DeleteOption option
+            ? option.Mode
+            : DeleteMode.RecycleBin
+    };
+
+    /// <summary>
+    /// 설정을 저장한다. 저장에 실패해도 백업 작업 자체에는 지장이 없으므로
+    /// 사용자를 막지 않고 넘어간다. 나중에 작업 이력 기능이 생기면 여기서 기록을 남긴다.
+    /// </summary>
+    private void TrySaveSettings()
+    {
+        try
+        {
+            _settingsStore.Save(CollectSettings());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 무시
+        }
     }
 
     // ── 초기 설정 ────────────────────────────────────────
@@ -37,8 +199,6 @@ public partial class Form1 : Form
         cboDeleteMode.Items.Add(new DeleteOption("휴지통으로 이동", DeleteMode.RecycleBin));
         cboDeleteMode.Items.Add(new DeleteOption("영구 삭제", DeleteMode.Permanent));
         cboDeleteMode.SelectedIndex = 0;   // 기본값은 되돌릴 수 있는 휴지통
-
-        chkDeleteSource.Checked = false;
 
         // 디자이너에서 더블클릭하는 대신 코드로 이벤트를 연결했다.
         // 체크박스를 켜고 끌 때마다 콤보박스 사용 가능 여부가 바뀐다.
@@ -104,6 +264,9 @@ public partial class Form1 : Form
         DateOnly end = DateOnly.FromDateTime(dtpEndDate.Value);
         DeleteMode deleteMode = SelectedDeleteMode();
 
+        // 실제로 실행한 값은 다음에 켤 때도 쓰이도록 바로 저장해둔다
+        TrySaveSettings();
+
         try
         {
             // ── 1단계: 대상 확인 ──────────────────────────
@@ -125,7 +288,11 @@ public partial class Form1 : Form
             // using: 창을 닫은 뒤 창이 쓰던 자원을 바로 정리한다
             using (var preview = new PreviewForm(plan, deleteMode))
             {
-                if (preview.ShowDialog(this) != DialogResult.OK)
+                _dialogOpen = true;
+                DialogResult answer = preview.ShowDialog(this);
+                _dialogOpen = false;
+
+                if (answer != DialogResult.OK)
                 {
                     ShowStatus("취소했습니다.", Color.DimGray);
                     return;
@@ -162,6 +329,7 @@ public partial class Form1 : Form
         if (p.Result is null)
         {
             ShowStatus($"처리 중 ({p.Index}/{p.Total})  {p.Folder.Date:yyyy-MM-dd}", Color.Black);
+            _trayIcon.Text = $"{AppName} - 처리 중 {p.Index}/{p.Total}";
             return;
         }
 
@@ -245,12 +413,27 @@ public partial class Form1 : Form
 
         bool anyProblem = archiveFailed > 0 || deleteFailed > 0;
         ShowStatus(message, anyProblem ? Color.DarkOrange : Color.Black);
+
+        // 창을 숨겨둔 사이에 끝났으면 트레이 알림으로 알려준다
+        if (!Visible)
+        {
+            _trayIcon.ShowBalloonTip(
+                5000,
+                anyProblem ? $"{AppName} - 일부 실패" : $"{AppName} - 완료",
+                message,
+                anyProblem ? ToolTipIcon.Warning : ToolTipIcon.Info);
+        }
     }
 
     // ── 공통 ─────────────────────────────────────────────
 
     private void SetBusy(bool busy)
     {
+        _isRunning = busy;
+        _trayRunItem.Enabled = !busy;
+        if (!busy)
+            _trayIcon.Text = AppName;
+
         btnRun.Enabled = !busy;
         btnBrowseSource.Enabled = !busy;
         btnBrowseOutput.Enabled = !busy;
@@ -277,8 +460,10 @@ public partial class Form1 : Form
         if (Directory.Exists(currentPath))
             folderDialog.SelectedPath = currentPath;
 
-        return folderDialog.ShowDialog(this) == DialogResult.OK
-            ? folderDialog.SelectedPath
-            : null;
+        _dialogOpen = true;
+        DialogResult answer = folderDialog.ShowDialog(this);
+        _dialogOpen = false;
+
+        return answer == DialogResult.OK ? folderDialog.SelectedPath : null;
     }
 }

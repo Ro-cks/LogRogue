@@ -18,6 +18,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LogRogue.Core\LogRogue.Core.csproj" />
+	<Compile Update="Form1.Tray.cs">
+		<DependentUpon>Form1.cs</DependentUpon>
+	</Compile>
   </ItemGroup>
 
 </Project>
