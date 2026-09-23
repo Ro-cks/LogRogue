@@ -79,7 +79,7 @@ public sealed class ScheduleForm : Form
         AcceptButton = okButton;
         CancelButton = cancelButton;
 
-        Load(current, deleteMode);
+        LoadFrom(current, deleteMode);
 
         ResumeLayout(false);
         PerformLayout();
@@ -171,7 +171,7 @@ public sealed class ScheduleForm : Form
 
     // ── 값 주고받기 ──────────────────────────────────────
 
-    private void Load(ScheduleSettings current, DeleteMode deleteMode)
+    private void LoadFrom(ScheduleSettings current, DeleteMode deleteMode)
     {
         _loading = true;
 

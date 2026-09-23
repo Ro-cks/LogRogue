@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>LogRogue</AssemblyName>
+    <AssemblyName>Log Rogue</AssemblyName>
     <Company>Famecs</Company>
     <Product>LogRogue</Product>
     <Description>로그 백업 유틸리티</Description>

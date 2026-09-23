@@ -282,7 +282,7 @@
             Controls.Add(txtSourcePath);
             Controls.Add(labelSource);
             Name = "Form1";
-            Text = "Form1";
+            Text = "Log Rogue";
             ((System.ComponentModel.ISupportInitialize)nudKeepDays).EndInit();
             ResumeLayout(false);
             PerformLayout();
