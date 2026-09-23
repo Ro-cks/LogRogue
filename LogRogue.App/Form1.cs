@@ -23,6 +23,9 @@ public partial class Form1 : Form
     /// <summary>코드에서 체크박스 값을 바꾸는 중인지. 이때는 레지스트리를 건드리지 않는다.</summary>
     private bool _updatingAutoStartCheckbox;
 
+    /// <summary>코드에서 기간 컨트롤 값을 바꾸는 중인지. 이때는 안내 문구를 띄우지 않는다.</summary>
+    private bool _updatingPeriodControls;
+
     /// <summary>삭제 방식 콤보박스 항목. ComboBox는 ToString() 결과를 화면에 보여준다.</summary>
     private sealed record DeleteOption(string Text, DeleteMode Mode)
     {
@@ -31,6 +34,12 @@ public partial class Form1 : Form
 
     /// <summary>압축 단위 콤보박스 항목.</summary>
     private sealed record GroupingOption(string Text, ArchiveGrouping Grouping)
+    {
+        public override string ToString() => Text;
+    }
+
+    /// <summary>기간 방식 콤보박스 항목.</summary>
+    private sealed record PeriodOption(string Text, PeriodMode Mode)
     {
         public override string ToString() => Text;
     }
@@ -50,6 +59,7 @@ public partial class Form1 : Form
         dtpStartDate.Value = DateTime.Today.AddDays(-30);
 
         lblStatus.Text = "";
+        SetupPeriodOptions();
         SetupDeleteOptions();
         SetupGroupingOptions();
         SetupResultList();
@@ -166,6 +176,20 @@ public partial class Form1 : Form
             }
         }
 
+        _updatingPeriodControls = true;
+        nudKeepDays.Value = Math.Clamp(settings.KeepRecentDays, nudKeepDays.Minimum, nudKeepDays.Maximum);
+
+        foreach (object item in cboPeriodMode.Items)
+        {
+            if (item is PeriodOption option && option.Mode == settings.PeriodMode)
+            {
+                cboPeriodMode.SelectedItem = item;
+                break;
+            }
+        }
+        _updatingPeriodControls = false;
+        UpdatePeriodControlState();
+
         foreach (object item in cboGrouping.Items)
         {
             if (item is GroupingOption option && option.Grouping == settings.Grouping)
@@ -188,7 +212,9 @@ public partial class Form1 : Form
         DeleteMode = cboDeleteMode.SelectedItem is DeleteOption option
             ? option.Mode
             : DeleteMode.RecycleBin,
-        Grouping = SelectedGrouping()
+        Grouping = SelectedGrouping(),
+        PeriodMode = SelectedPeriodMode(),
+        KeepRecentDays = (int)nudKeepDays.Value
     };
 
     /// <summary>
@@ -234,6 +260,52 @@ public partial class Form1 : Form
         return cboDeleteMode.SelectedItem is DeleteOption option
             ? option.Mode
             : DeleteMode.None;
+    }
+
+    // ── 기간 ─────────────────────────────────────────────
+
+    private void SetupPeriodOptions()
+    {
+        nudKeepDays.Minimum = BackupPeriod.MinKeepRecentDays;
+        nudKeepDays.Maximum = BackupPeriod.MaxKeepRecentDays;
+        nudKeepDays.Value = 7;
+
+        cboPeriodMode.DropDownStyle = ComboBoxStyle.DropDownList;
+        cboPeriodMode.Items.Clear();
+        cboPeriodMode.Items.Add(new PeriodOption("지정한 기간", PeriodMode.Absolute));
+        cboPeriodMode.Items.Add(new PeriodOption("최근 며칠 제외 전부", PeriodMode.Relative));
+        cboPeriodMode.SelectedIndex = 0;
+
+        // 사용자가 직접 바꿨을 때만 계산된 날짜를 안내한다
+        cboPeriodMode.SelectedIndexChanged += (_, _) => UpdatePeriodControlState(showHint: true);
+        nudKeepDays.ValueChanged += (_, _) => UpdatePeriodControlState(showHint: true);
+
+        UpdatePeriodControlState();
+    }
+
+    private PeriodMode SelectedPeriodMode()
+        => cboPeriodMode.SelectedItem is PeriodOption option ? option.Mode : PeriodMode.Absolute;
+
+    /// <summary>지금 화면에 입력된 기간.</summary>
+    private BackupPeriod SelectedPeriod()
+        => SelectedPeriodMode() == PeriodMode.Relative
+            ? BackupPeriod.Relative((int)nudKeepDays.Value)
+            : BackupPeriod.Absolute(
+                DateOnly.FromDateTime(dtpStartDate.Value),
+                DateOnly.FromDateTime(dtpEndDate.Value));
+
+    /// <summary>고른 방식에 맞는 컨트롤만 쓸 수 있게 한다.</summary>
+    /// <param name="showHint">상대 기간일 때 계산된 날짜를 상태 표시줄에 알릴지. 작업 결과를 덮지 않도록 기본은 알리지 않는다.</param>
+    private void UpdatePeriodControlState(bool showHint = false)
+    {
+        bool relative = SelectedPeriodMode() == PeriodMode.Relative;
+
+        dtpStartDate.Enabled = !relative && !_isRunning;
+        dtpEndDate.Enabled = !relative && !_isRunning;
+        nudKeepDays.Enabled = relative && !_isRunning;
+
+        if (showHint && relative && !_updatingPeriodControls)
+            ShowStatus(SelectedPeriod().Describe(), Color.DimGray);
     }
 
     private void SetupGroupingOptions()
@@ -292,8 +364,7 @@ public partial class Form1 : Form
         // 백그라운드 작업 안에서 컨트롤에 접근하면 오류가 난다.
         string sourceRoot = txtSourcePath.Text.Trim();
         string outputDirectory = txtOutputPath.Text.Trim();
-        DateOnly start = DateOnly.FromDateTime(dtpStartDate.Value);
-        DateOnly end = DateOnly.FromDateTime(dtpEndDate.Value);
+        BackupPeriod period = SelectedPeriod();
         DeleteMode deleteMode = SelectedDeleteMode();
         ArchiveGrouping grouping = SelectedGrouping();
 
@@ -307,7 +378,7 @@ public partial class Form1 : Form
             ShowStatus("대상 폴더를 확인하는 중...", Color.Black);
 
             BackupPlan plan = await Task.Run(
-                () => _job.Prepare(sourceRoot, outputDirectory, start, end, grouping));
+                () => _job.Prepare(sourceRoot, outputDirectory, period, grouping));
 
             SetBusy(false);
 
@@ -489,8 +560,7 @@ public partial class Form1 : Form
         btnBrowseOutput.Enabled = !busy;
         txtSourcePath.ReadOnly = busy;
         txtOutputPath.ReadOnly = busy;
-        dtpStartDate.Enabled = !busy;
-        dtpEndDate.Enabled = !busy;
+        UpdatePeriodControlState();
         chkDeleteSource.Enabled = !busy;
         UpdateDeleteOptionState();
         cboGrouping.Enabled = !busy;

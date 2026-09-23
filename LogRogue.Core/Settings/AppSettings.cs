@@ -34,4 +34,10 @@ public sealed class AppSettings
 
     /// <summary>압축 단위.</summary>
     public ArchiveGrouping Grouping { get; set; } = ArchiveGrouping.Daily;
+
+    /// <summary>기간 지정 방식.</summary>
+    public PeriodMode PeriodMode { get; set; } = PeriodMode.Absolute;
+
+    /// <summary>상대 기간일 때 남겨둘 최근 일수.</summary>
+    public int KeepRecentDays { get; set; } = 7;
 }

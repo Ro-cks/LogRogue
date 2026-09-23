@@ -47,12 +47,16 @@
             chkAutoStart = new CheckBox();
             cboGrouping = new ComboBox();
             lblGrouping = new Label();
+            cboPeriodMode = new ComboBox();
+            nudKeepDays = new NumericUpDown();
+            label1 = new Label();
+            ((System.ComponentModel.ISupportInitialize)nudKeepDays).BeginInit();
             SuspendLayout();
             // 
             // labelSource
             // 
             labelSource.AutoSize = true;
-            labelSource.Location = new Point(145, 41);
+            labelSource.Location = new Point(99, 46);
             labelSource.Name = "labelSource";
             labelSource.Size = new Size(59, 15);
             labelSource.TabIndex = 0;
@@ -60,14 +64,14 @@
             // 
             // txtSourcePath
             // 
-            txtSourcePath.Location = new Point(219, 38);
+            txtSourcePath.Location = new Point(173, 43);
             txtSourcePath.Name = "txtSourcePath";
-            txtSourcePath.Size = new Size(356, 23);
+            txtSourcePath.Size = new Size(386, 23);
             txtSourcePath.TabIndex = 1;
             // 
             // btnBrowseSource
             // 
-            btnBrowseSource.Location = new Point(581, 37);
+            btnBrowseSource.Location = new Point(565, 42);
             btnBrowseSource.Name = "btnBrowseSource";
             btnBrowseSource.Size = new Size(75, 23);
             btnBrowseSource.TabIndex = 2;
@@ -77,7 +81,7 @@
             // 
             // btnBrowseOutput
             // 
-            btnBrowseOutput.Location = new Point(581, 66);
+            btnBrowseOutput.Location = new Point(565, 75);
             btnBrowseOutput.Name = "btnBrowseOutput";
             btnBrowseOutput.Size = new Size(75, 23);
             btnBrowseOutput.TabIndex = 5;
@@ -87,15 +91,15 @@
             // 
             // txtOutputPath
             // 
-            txtOutputPath.Location = new Point(219, 67);
+            txtOutputPath.Location = new Point(173, 72);
             txtOutputPath.Name = "txtOutputPath";
-            txtOutputPath.Size = new Size(356, 23);
+            txtOutputPath.Size = new Size(386, 23);
             txtOutputPath.TabIndex = 4;
             // 
             // labelOutput
             // 
             labelOutput.AutoSize = true;
-            labelOutput.Location = new Point(145, 70);
+            labelOutput.Location = new Point(99, 75);
             labelOutput.Name = "labelOutput";
             labelOutput.Size = new Size(59, 15);
             labelOutput.TabIndex = 3;
@@ -103,14 +107,14 @@
             // 
             // dtpEndDate
             // 
-            dtpEndDate.Location = new Point(456, 131);
+            dtpEndDate.Location = new Point(440, 135);
             dtpEndDate.Name = "dtpEndDate";
             dtpEndDate.Size = new Size(200, 23);
             dtpEndDate.TabIndex = 6;
             // 
             // dtpStartDate
             // 
-            dtpStartDate.Location = new Point(145, 131);
+            dtpStartDate.Location = new Point(234, 135);
             dtpStartDate.Name = "dtpStartDate";
             dtpStartDate.Size = new Size(200, 23);
             dtpStartDate.TabIndex = 7;
@@ -118,7 +122,7 @@
             // labelStartDate
             // 
             labelStartDate.AutoSize = true;
-            labelStartDate.Location = new Point(145, 113);
+            labelStartDate.Location = new Point(234, 117);
             labelStartDate.Name = "labelStartDate";
             labelStartDate.Size = new Size(43, 15);
             labelStartDate.TabIndex = 8;
@@ -127,7 +131,7 @@
             // labelEndDate
             // 
             labelEndDate.AutoSize = true;
-            labelEndDate.Location = new Point(456, 113);
+            labelEndDate.Location = new Point(440, 117);
             labelEndDate.Name = "labelEndDate";
             labelEndDate.Size = new Size(43, 15);
             labelEndDate.TabIndex = 9;
@@ -136,7 +140,7 @@
             // chkDeleteSource
             // 
             chkDeleteSource.AutoSize = true;
-            chkDeleteSource.Location = new Point(370, 176);
+            chkDeleteSource.Location = new Point(354, 221);
             chkDeleteSource.Name = "chkDeleteSource";
             chkDeleteSource.Size = new Size(78, 19);
             chkDeleteSource.TabIndex = 10;
@@ -145,7 +149,7 @@
             // 
             // btnRun
             // 
-            btnRun.Location = new Point(581, 174);
+            btnRun.Location = new Point(565, 218);
             btnRun.Name = "btnRun";
             btnRun.Size = new Size(75, 23);
             btnRun.TabIndex = 11;
@@ -156,7 +160,7 @@
             // lblStatus
             // 
             lblStatus.AutoSize = true;
-            lblStatus.Location = new Point(343, 199);
+            lblStatus.Location = new Point(354, 243);
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(39, 15);
             lblStatus.TabIndex = 12;
@@ -164,16 +168,16 @@
             // 
             // lvResults
             // 
-            lvResults.Location = new Point(145, 252);
+            lvResults.Location = new Point(99, 284);
             lvResults.Name = "lvResults";
-            lvResults.Size = new Size(511, 162);
+            lvResults.Size = new Size(541, 212);
             lvResults.TabIndex = 13;
             lvResults.UseCompatibleStateImageBehavior = false;
             // 
             // cboDeleteMode
             // 
             cboDeleteMode.FormattingEnabled = true;
-            cboDeleteMode.Location = new Point(454, 174);
+            cboDeleteMode.Location = new Point(438, 219);
             cboDeleteMode.Name = "cboDeleteMode";
             cboDeleteMode.Size = new Size(121, 23);
             cboDeleteMode.TabIndex = 14;
@@ -181,7 +185,7 @@
             // chkAutoStart
             // 
             chkAutoStart.AutoSize = true;
-            chkAutoStart.Location = new Point(481, 12);
+            chkAutoStart.Location = new Point(465, 17);
             chkAutoStart.Name = "chkAutoStart";
             chkAutoStart.Size = new Size(175, 19);
             chkAutoStart.TabIndex = 15;
@@ -191,7 +195,7 @@
             // cboGrouping
             // 
             cboGrouping.FormattingEnabled = true;
-            cboGrouping.Location = new Point(145, 196);
+            cboGrouping.Location = new Point(99, 221);
             cboGrouping.Name = "cboGrouping";
             cboGrouping.Size = new Size(121, 23);
             cboGrouping.TabIndex = 16;
@@ -199,17 +203,44 @@
             // lblGrouping
             // 
             lblGrouping.AutoSize = true;
-            lblGrouping.Location = new Point(145, 177);
+            lblGrouping.Location = new Point(99, 202);
             lblGrouping.Name = "lblGrouping";
             lblGrouping.Size = new Size(59, 15);
             lblGrouping.TabIndex = 17;
             lblGrouping.Text = "압축 단위";
             // 
+            // cboPeriodMode
+            // 
+            cboPeriodMode.FormattingEnabled = true;
+            cboPeriodMode.Location = new Point(99, 149);
+            cboPeriodMode.Name = "cboPeriodMode";
+            cboPeriodMode.Size = new Size(121, 23);
+            cboPeriodMode.TabIndex = 18;
+            // 
+            // nudKeepDays
+            // 
+            nudKeepDays.Location = new Point(234, 164);
+            nudKeepDays.Name = "nudKeepDays";
+            nudKeepDays.Size = new Size(120, 23);
+            nudKeepDays.TabIndex = 19;
+            // 
+            // label1
+            // 
+            label1.AutoSize = true;
+            label1.Location = new Point(360, 166);
+            label1.Name = "label1";
+            label1.Size = new Size(249, 15);
+            label1.TabIndex = 20;
+            label1.Text = "설정된 날은 남기고, 이전 날들을 포함합니다.";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(739, 512);
+            Controls.Add(label1);
+            Controls.Add(nudKeepDays);
+            Controls.Add(cboPeriodMode);
             Controls.Add(lblGrouping);
             Controls.Add(cboGrouping);
             Controls.Add(chkAutoStart);
@@ -230,6 +261,7 @@
             Controls.Add(labelSource);
             Name = "Form1";
             Text = "Form1";
+            ((System.ComponentModel.ISupportInitialize)nudKeepDays).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -255,5 +287,8 @@
         private CheckBox chkAutoStart;
         private ComboBox cboGrouping;
         private Label lblGrouping;
+        private ComboBox cboPeriodMode;
+        private NumericUpDown nudKeepDays;
+        private Label label1;
     }
 }

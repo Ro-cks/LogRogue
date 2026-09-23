@@ -12,6 +12,7 @@ public sealed class BackupPlan
     public required string SourceRoot { get; init; }
     public required string OutputDirectory { get; init; }
     public required ArchiveGrouping Grouping { get; init; }
+    public required BackupPeriod Period { get; init; }
 
     /// <summary>기간에 해당하는 날짜 폴더 전체. 날짜순.</summary>
     public required IReadOnlyList<LogDayFolder> Days { get; init; }

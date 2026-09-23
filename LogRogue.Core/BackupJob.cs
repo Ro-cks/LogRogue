@@ -21,24 +21,30 @@ public sealed class BackupJob
     /// 경로를 검증하고 압축 대상 날짜 폴더를 찾아 묶은 계획을 돌려준다.
     /// 파일을 만들거나 지우지 않으므로 몇 번을 호출해도 안전하다.
     /// </summary>
+    /// <param name="today">오늘로 취급할 날짜. 생략하면 시스템 날짜를 쓴다. (테스트용)</param>
     public BackupPlan Prepare(
         string sourceRoot,
         string outputDirectory,
-        DateOnly start,
-        DateOnly end,
-        ArchiveGrouping grouping)
+        BackupPeriod period,
+        ArchiveGrouping grouping,
+        DateOnly? today = null)
     {
         LogArchiver.ValidatePaths(sourceRoot, outputDirectory);
 
         string fullSource = Path.GetFullPath(sourceRoot);
         string fullOutput = Path.GetFullPath(outputDirectory);
 
-        IReadOnlyList<LogDayFolder> days = _scanner.Scan(fullSource, start, end);
+        // 상대 기간은 여기서 실행 시점 기준으로 계산된다.
+        // 예약 실행에서도 같은 설정으로 매번 알맞은 날짜 범위가 나온다.
+        (DateOnly start, DateOnly end) = period.Resolve(today);
+
+        IReadOnlyList<LogDayFolder> days = _scanner.Scan(fullSource, start, end, today);
 
         return new BackupPlan
         {
             SourceRoot = fullSource,
             OutputDirectory = fullOutput,
+            Period = period,
             Grouping = grouping,
             Days = days,
             Groups = ArchiveGrouper.Group(days, grouping)

@@ -104,6 +104,11 @@ public sealed class SettingsStore
 
         if (!Enum.IsDefined(settings.Grouping))
             settings.Grouping = ArchiveGrouping.Daily;
+
+        if (!Enum.IsDefined(settings.PeriodMode))
+            settings.PeriodMode = PeriodMode.Absolute;
+
+        settings.KeepRecentDays = BackupPeriod.Clamp(settings.KeepRecentDays);
     }
 
     private string? BackupCorruptFile()
