@@ -161,12 +161,11 @@
             // 
             // lblStatus
             // 
-            lblStatus.AutoSize = true;
             lblStatus.Location = new Point(99, 276);
             lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(39, 15);
+            lblStatus.Size = new Size(541, 40);
             lblStatus.TabIndex = 12;
-            lblStatus.Text = "label1";
+            lblStatus.Text = "이곳에 프로그램의 상태가 표시됩니다.";
             // 
             // lvResults
             // 
@@ -281,6 +280,8 @@
             Controls.Add(btnBrowseSource);
             Controls.Add(txtSourcePath);
             Controls.Add(labelSource);
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
             Name = "Form1";
             Text = "Log Rogue";
             ((System.ComponentModel.ISupportInitialize)nudKeepDays).EndInit();

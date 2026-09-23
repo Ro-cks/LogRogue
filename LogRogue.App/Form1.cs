@@ -17,6 +17,17 @@ public partial class Form1 : Form
     private readonly SettingsStore _settingsStore = new();
     private readonly RunHistoryStore _historyStore = new();
 
+    /// <summary>
+    /// 상태 표시줄에 마우스를 올렸을 때 전체 내용을 보여주는 풍선 도움말.
+    /// 라벨 폭이 고정이라 긴 메시지는 말줄임표로 잘리기 때문이다.
+    /// </summary>
+    private readonly ToolTip _statusTip = new()
+    {
+        InitialDelay = 400,
+        AutoPopDelay = 20000,   // 긴 메시지도 읽을 시간이 있도록 넉넉히
+        ReshowDelay = 100
+    };
+
     /// <summary>다음 실행이 어떻게 시작됐는지. 트레이 메뉴로 실행하면 잠깐 Tray가 된다.</summary>
     private RunTrigger _nextTrigger = RunTrigger.Manual;
 
@@ -70,6 +81,11 @@ public partial class Form1 : Form
         dtpStartDate.Value = DateTime.Today.AddDays(-30);
 
         lblStatus.Text = "";
+
+        // 폼이 정리될 때 풍선 도움말도 함께 정리되도록 구성 요소 목록에 넣는다
+        components ??= new System.ComponentModel.Container();
+        components.Add(_statusTip);
+
         SetupPeriodOptions();
         SetupDeleteOptions();
         SetupGroupingOptions();
@@ -652,6 +668,9 @@ public partial class Form1 : Form
     {
         lblStatus.ForeColor = color;
         lblStatus.Text = message;
+
+        // 라벨에 다 들어가지 않은 부분도 마우스를 올리면 볼 수 있게 한다
+        _statusTip.SetToolTip(lblStatus, message);
     }
 
     private string? PickFolder(string description, string currentPath)
