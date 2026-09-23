@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
 
 namespace LogRogue.Core.Settings;
@@ -100,6 +101,9 @@ public sealed class SettingsStore
         // 설정 화면에서 고를 수 있는 건 휴지통과 영구 삭제 둘뿐이다
         if (settings.DeleteMode is not (DeleteMode.RecycleBin or DeleteMode.Permanent))
             settings.DeleteMode = DeleteMode.RecycleBin;
+
+        if (!Enum.IsDefined(settings.Grouping))
+            settings.Grouping = ArchiveGrouping.Daily;
     }
 
     private string? BackupCorruptFile()

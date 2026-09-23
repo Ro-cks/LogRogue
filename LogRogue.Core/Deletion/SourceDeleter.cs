@@ -10,7 +10,7 @@ namespace LogRogue.Core.Deletion;
 ///
 /// 삭제는 되돌릴 수 없는 작업이므로 실제로 지우기 전에 아래를 모두 다시 확인한다.
 /// 하나라도 어긋나면 지우지 않고 실패 결과를 돌려준다.
-///   1. 압축과 검증이 성공했고, 압축 파일이 그 크기 그대로 존재한다
+///   1. 압축과 검증이 성공했고, 압축 파일이 그 크기 그대로 존재하며, 이 날짜가 그 압축 파일에 포함됐다
 ///   2. 지우려는 폴더가 대상 폴더 바로 아래의 날짜 폴더다
 ///   3. 오늘 이전 날짜다
 ///   4. 폴더 안의 모든 파일을 다른 프로그램이 쓰고 있지 않다
@@ -25,7 +25,10 @@ public sealed class SourceDeleter
     };
 
     /// <summary>예외를 던지지 않고 항상 결과를 돌려준다.</summary>
+    /// <param name="folder">지울 날짜 폴더.</param>
+    /// <param name="archived">그 날짜가 들어간 압축 결과.</param>
     public DeletionResult Delete(
+        LogDayFolder folder,
         ArchiveResult archived,
         string sourceRoot,
         DeleteMode mode,
@@ -34,11 +37,9 @@ public sealed class SourceDeleter
         if (mode == DeleteMode.None)
             throw new ArgumentException("삭제 방식이 지정되지 않았습니다.", nameof(mode));
 
-        LogDayFolder folder = archived.Source;
-
         try
         {
-            EnsureArchiveIsIntact(archived);
+            EnsureArchiveIsIntact(archived, folder);
             EnsureIsDateFolderUnderRoot(folder, sourceRoot);
             EnsureIsPastDate(folder, today ?? DateOnly.FromDateTime(DateTime.Today));
             EnsureNoFileInUse(folder.Path);
@@ -61,10 +62,13 @@ public sealed class SourceDeleter
 
     // ── 안전 확인 ────────────────────────────────────────
 
-    private static void EnsureArchiveIsIntact(ArchiveResult archived)
+    private static void EnsureArchiveIsIntact(ArchiveResult archived, LogDayFolder folder)
     {
         if (!archived.Succeeded || archived.ArchivePath is null)
             throw new InvalidOperationException("압축에 성공하지 않은 폴더는 삭제하지 않습니다.");
+
+        if (!archived.Group.Days.Any(d => d.Date == folder.Date && d.Path == folder.Path))
+            throw new InvalidOperationException("이 날짜가 포함되지 않은 압축 결과로는 삭제하지 않습니다.");
 
         var zip = new FileInfo(archived.ArchivePath);
         if (!zip.Exists || zip.Length != archived.ArchiveBytes)

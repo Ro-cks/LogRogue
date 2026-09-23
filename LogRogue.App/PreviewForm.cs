@@ -7,7 +7,7 @@ using LogRogue.Core.Scanning;
 namespace LogRogue.App;
 
 /// <summary>
-/// 압축을 시작하기 전에 대상 날짜 폴더 목록과 삭제 방식을 보여주고 확인받는 창.
+/// 압축을 시작하기 전에 만들어질 압축 파일 목록과 삭제 방식을 보여주고 확인받는 창.
 /// [압축 시작]을 누르면 DialogResult.OK, [취소]나 창 닫기는 DialogResult.Cancel.
 ///
 /// 디자이너 없이 코드로만 만든 창이다.
@@ -26,7 +26,7 @@ public sealed class PreviewForm : Form
 
         Text = "압축 대상 확인";
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(640, 440);
+        ClientSize = new Size(660, 460);
         MinimumSize = new Size(480, 340);
         MinimizeBox = false;
         MaximizeBox = false;
@@ -67,19 +67,19 @@ public sealed class PreviewForm : Form
 
     private static Label CreateSummary(BackupPlan plan, int existingCount)
     {
-        IReadOnlyList<LogDayFolder> targets = plan.Targets;
-        int totalFiles = targets.Sum(t => t.FileCount);
-        long totalBytes = targets.Sum(t => t.TotalBytes);
+        IReadOnlyList<LogDayFolder> days = plan.Days;
+        int totalFiles = days.Sum(t => t.FileCount);
+        long totalBytes = days.Sum(t => t.TotalBytes);
 
         string text =
-            $"{targets[0].Date:yyyy-MM-dd} ~ {targets[^1].Date:yyyy-MM-dd}  ·  " +
-            $"{targets.Count}일  ·  파일 {totalFiles}개  ·  {ByteSize.ToDisplay(totalBytes)}\n" +
+            $"{days[0].Date:yyyy-MM-dd} ~ {days[^1].Date:yyyy-MM-dd}  ·  " +
+            $"{days.Count}일  ·  파일 {totalFiles}개  ·  {ByteSize.ToDisplay(totalBytes)}\n" +
+            $"압축 단위: {GroupingText(plan.Grouping)}  →  압축 파일 {plan.Groups.Count}개\n" +
             $"저장 위치: {plan.OutputDirectory}";
 
         if (existingCount > 0)
         {
-            text += $"\n※ 이미 압축 파일이 있는 날짜 {existingCount}개: " +
-                    "기존 내용을 모두 포함하면 교체하고, 아니면 번호를 붙여 따로 저장합니다.";
+            text += $"\n※ 같은 이름의 압축 파일이 이미 있는 {existingCount}개는 기존 내용에 새 날짜를 합쳐 다시 만듭니다.";
         }
 
         return new Label
@@ -122,6 +122,20 @@ public sealed class PreviewForm : Form
         };
     }
 
+    private static string GroupingText(ArchiveGrouping grouping) => grouping switch
+    {
+        ArchiveGrouping.Daily => "일별",
+        ArchiveGrouping.Weekly => "주별 (월~일)",
+        ArchiveGrouping.Monthly => "월별",
+        _ => "선택 기간 전체"
+    };
+
+    /// <summary>묶음에 든 날짜 범위. 하루면 그 날짜만.</summary>
+    private static string DayRangeText(ArchiveGroup group)
+        => group.FirstDay == group.LastDay
+            ? $"{group.FirstDay:yyyy-MM-dd}"
+            : $"{group.FirstDay:yyyy-MM-dd} ~ {group.LastDay:MM-dd}";
+
     private static ListView CreateList(BackupPlan plan, ref int existingCount)
     {
         var list = new ListView
@@ -133,30 +147,32 @@ public sealed class PreviewForm : Form
             MultiSelect = false
         };
 
-        list.Columns.Add("날짜", 100);
-        list.Columns.Add("파일 수", 70, HorizontalAlignment.Right);
-        list.Columns.Add("용량", 90, HorizontalAlignment.Right);
+        list.Columns.Add("압축 파일", 190);
+        list.Columns.Add("포함 날짜", 140);
+        list.Columns.Add("일수", 45, HorizontalAlignment.Right);
+        list.Columns.Add("파일 수", 60, HorizontalAlignment.Right);
+        list.Columns.Add("용량", 75, HorizontalAlignment.Right);
         list.Columns.Add("비고", 100);
-        list.Columns.Add("경로", 250);
 
         list.BeginUpdate();
 
-        foreach (LogDayFolder folder in plan.Targets)
+        foreach (ArchiveGroup group in plan.Groups)
         {
-            bool exists = File.Exists(DayFolderArchiver.GetArchivePath(folder, plan.OutputDirectory));
+            bool exists = File.Exists(LogArchiver.GetArchivePath(group, plan.OutputDirectory));
             if (exists)
                 existingCount++;
 
             var item = new ListViewItem(new[]
             {
-                folder.Date.ToString("yyyy-MM-dd"),
-                $"{folder.FileCount}개",
-                ByteSize.ToDisplay(folder.TotalBytes),
-                exists ? "기존 zip 있음" : "",
-                folder.Path
+                group.FileName,
+                DayRangeText(group),
+                $"{group.Days.Count}일",
+                $"{group.FileCount}개",
+                ByteSize.ToDisplay(group.TotalBytes),
+                exists ? "기존 zip에 합침" : ""
             });
 
-            if (folder.FileCount == 0)
+            if (group.FileCount == 0)
                 item.ForeColor = Color.Gray;
 
             list.Items.Add(item);

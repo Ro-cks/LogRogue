@@ -45,6 +45,8 @@
             lvResults = new ListView();
             cboDeleteMode = new ComboBox();
             chkAutoStart = new CheckBox();
+            cboGrouping = new ComboBox();
+            lblGrouping = new Label();
             SuspendLayout();
             // 
             // labelSource
@@ -186,11 +188,30 @@
             chkAutoStart.Text = "Windows 시작 시 자동 실행";
             chkAutoStart.UseVisualStyleBackColor = true;
             // 
+            // cboGrouping
+            // 
+            cboGrouping.FormattingEnabled = true;
+            cboGrouping.Location = new Point(145, 196);
+            cboGrouping.Name = "cboGrouping";
+            cboGrouping.Size = new Size(121, 23);
+            cboGrouping.TabIndex = 16;
+            // 
+            // lblGrouping
+            // 
+            lblGrouping.AutoSize = true;
+            lblGrouping.Location = new Point(145, 177);
+            lblGrouping.Name = "lblGrouping";
+            lblGrouping.Size = new Size(59, 15);
+            lblGrouping.TabIndex = 17;
+            lblGrouping.Text = "압축 단위";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
+            Controls.Add(lblGrouping);
+            Controls.Add(cboGrouping);
             Controls.Add(chkAutoStart);
             Controls.Add(cboDeleteMode);
             Controls.Add(lvResults);
@@ -232,5 +253,7 @@
         private ListView lvResults;
         private ComboBox cboDeleteMode;
         private CheckBox chkAutoStart;
+        private ComboBox cboGrouping;
+        private Label lblGrouping;
     }
 }

@@ -1,3 +1,4 @@
+using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
 
 namespace LogRogue.Core.Settings;
@@ -30,4 +31,7 @@ public sealed class AppSettings
     /// DeleteSource와 따로 저장한다.
     /// </summary>
     public DeleteMode DeleteMode { get; set; } = DeleteMode.RecycleBin;
+
+    /// <summary>압축 단위.</summary>
+    public ArchiveGrouping Grouping { get; set; } = ArchiveGrouping.Daily;
 }

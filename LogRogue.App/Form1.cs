@@ -29,6 +29,12 @@ public partial class Form1 : Form
         public override string ToString() => Text;
     }
 
+    /// <summary>압축 단위 콤보박스 항목.</summary>
+    private sealed record GroupingOption(string Text, ArchiveGrouping Grouping)
+    {
+        public override string ToString() => Text;
+    }
+
     /// <summary>디자이너가 사용하는 기본 생성자.</summary>
     public Form1() : this(startInTray: false) { }
 
@@ -45,6 +51,7 @@ public partial class Form1 : Form
 
         lblStatus.Text = "";
         SetupDeleteOptions();
+        SetupGroupingOptions();
         SetupResultList();
         SetupTray();   // Form1.Tray.cs
 
@@ -159,6 +166,15 @@ public partial class Form1 : Form
             }
         }
 
+        foreach (object item in cboGrouping.Items)
+        {
+            if (item is GroupingOption option && option.Grouping == settings.Grouping)
+            {
+                cboGrouping.SelectedItem = item;
+                break;
+            }
+        }
+
         // 체크 상태를 바꾸면 CheckedChanged가 불려 콤보박스 활성 상태도 같이 맞춰진다
         chkDeleteSource.Checked = settings.DeleteSource;
     }
@@ -171,7 +187,8 @@ public partial class Form1 : Form
         DeleteSource = chkDeleteSource.Checked,
         DeleteMode = cboDeleteMode.SelectedItem is DeleteOption option
             ? option.Mode
-            : DeleteMode.RecycleBin
+            : DeleteMode.RecycleBin,
+        Grouping = SelectedGrouping()
     };
 
     /// <summary>
@@ -219,6 +236,20 @@ public partial class Form1 : Form
             : DeleteMode.None;
     }
 
+    private void SetupGroupingOptions()
+    {
+        cboGrouping.DropDownStyle = ComboBoxStyle.DropDownList;
+        cboGrouping.Items.Clear();
+        cboGrouping.Items.Add(new GroupingOption("일별", ArchiveGrouping.Daily));
+        cboGrouping.Items.Add(new GroupingOption("주별 (월~일)", ArchiveGrouping.Weekly));
+        cboGrouping.Items.Add(new GroupingOption("월별", ArchiveGrouping.Monthly));
+        cboGrouping.Items.Add(new GroupingOption("선택 기간 전체", ArchiveGrouping.WholeRange));
+        cboGrouping.SelectedIndex = 0;
+    }
+
+    private ArchiveGrouping SelectedGrouping()
+        => cboGrouping.SelectedItem is GroupingOption option ? option.Grouping : ArchiveGrouping.Daily;
+
     /// <summary>결과 목록의 표시 방식과 컬럼을 설정한다.</summary>
     private void SetupResultList()
     {
@@ -228,12 +259,13 @@ public partial class Form1 : Form
         lvResults.MultiSelect = false;
 
         lvResults.Columns.Clear();
-        lvResults.Columns.Add("날짜", 95);
-        lvResults.Columns.Add("원본", 75, HorizontalAlignment.Right);
-        lvResults.Columns.Add("압축", 75, HorizontalAlignment.Right);
-        lvResults.Columns.Add("감소", 50, HorizontalAlignment.Right);
-        lvResults.Columns.Add("원본 삭제", 75);
-        lvResults.Columns.Add("결과", 300);
+        lvResults.Columns.Add("압축 파일", 175);
+        lvResults.Columns.Add("일수", 40, HorizontalAlignment.Right);
+        lvResults.Columns.Add("원본", 70, HorizontalAlignment.Right);
+        lvResults.Columns.Add("압축", 70, HorizontalAlignment.Right);
+        lvResults.Columns.Add("감소", 45, HorizontalAlignment.Right);
+        lvResults.Columns.Add("원본 삭제", 80);
+        lvResults.Columns.Add("결과", 260);
     }
 
     // ── 버튼 ─────────────────────────────────────────────
@@ -263,6 +295,7 @@ public partial class Form1 : Form
         DateOnly start = DateOnly.FromDateTime(dtpStartDate.Value);
         DateOnly end = DateOnly.FromDateTime(dtpEndDate.Value);
         DeleteMode deleteMode = SelectedDeleteMode();
+        ArchiveGrouping grouping = SelectedGrouping();
 
         // 실제로 실행한 값은 다음에 켤 때도 쓰이도록 바로 저장해둔다
         TrySaveSettings();
@@ -274,11 +307,11 @@ public partial class Form1 : Form
             ShowStatus("대상 폴더를 확인하는 중...", Color.Black);
 
             BackupPlan plan = await Task.Run(
-                () => _job.Prepare(sourceRoot, outputDirectory, start, end));
+                () => _job.Prepare(sourceRoot, outputDirectory, start, end, grouping));
 
             SetBusy(false);
 
-            if (plan.Targets.Count == 0)
+            if (plan.Days.Count == 0)
             {
                 ShowStatus("해당 기간에 대상 폴더가 없습니다.", Color.DimGray);
                 return;
@@ -306,7 +339,7 @@ public partial class Form1 : Form
             // Progress는 만든 스레드(UI 스레드)로 알아서 보고를 넘겨준다
             var progress = new Progress<BackupProgress>(OnProgress);
 
-            IReadOnlyList<DayBackupResult> results = await Task.Run(
+            IReadOnlyList<GroupBackupResult> results = await Task.Run(
                 () => _job.Run(plan, deleteMode, progress));
 
             ShowSummary(results, deleteMode);
@@ -328,7 +361,7 @@ public partial class Form1 : Form
     {
         if (p.Result is null)
         {
-            ShowStatus($"처리 중 ({p.Index}/{p.Total})  {p.Folder.Date:yyyy-MM-dd}", Color.Black);
+            ShowStatus($"처리 중 ({p.Index}/{p.Total})  {p.Group.FileName}", Color.Black);
             _trayIcon.Text = $"{AppName} - 처리 중 {p.Index}/{p.Total}";
             return;
         }
@@ -337,41 +370,56 @@ public partial class Form1 : Form
         lvResults.EnsureVisible(lvResults.Items.Count - 1);   // 새 줄이 보이도록 스크롤
     }
 
-    private static ListViewItem CreateResultItem(DayBackupResult day)
+    private static ListViewItem CreateResultItem(GroupBackupResult result)
     {
-        ArchiveResult a = day.Archive;
-        DeletionResult? d = day.Deletion;
-        string date = a.Source.Date.ToString("yyyy-MM-dd");
-        string original = ByteSize.ToDisplay(a.Source.TotalBytes);
+        ArchiveResult a = result.Archive;
+        ArchiveGroup group = a.Group;
+        string name = group.FileName;
+        string days = $"{group.Days.Count}일";
+        string original = ByteSize.ToDisplay(group.TotalBytes);
 
         // 압축 실패: 삭제는 시도조차 하지 않는다
         if (!a.Succeeded)
         {
-            return new ListViewItem(new[] { date, original, "", "", "-", $"압축 실패: {a.Error}" })
+            return new ListViewItem(new[] { name, days, original, "", "", "-", $"압축 실패: {a.Error}" })
             {
                 ForeColor = Color.Firebrick
             };
         }
 
-        double reduction = a.Source.TotalBytes > 0
-            ? 1.0 - (double)a.ArchiveBytes / a.Source.TotalBytes
+        double reduction = group.TotalBytes > 0
+            ? 1.0 - (double)a.ArchiveBytes / group.TotalBytes
             : 0;
 
-        string deleteText = d switch
-        {
-            null => "-",
-            { Succeeded: false } => "실패",
-            { Mode: DeleteMode.RecycleBin } => "휴지통",
-            _ => "영구 삭제"
-        };
+        // 원본 삭제 칸: 삭제 안 함 "-", 전부 성공 "휴지통 7일", 일부 실패 "5/7일"
+        string deleteText;
+        if (result.Deletions.Count == 0)
+            deleteText = "-";
+        else if (result.FailedDeletions > 0)
+            deleteText = $"{result.DeletedDays}/{result.Deletions.Count}일";
+        else
+            deleteText = result.Deletions[0].Result.Mode == DeleteMode.RecycleBin
+                ? $"휴지통 {result.DeletedDays}일"
+                : $"영구 {result.DeletedDays}일";
 
-        string resultText = d is { Succeeded: false }
-            ? $"압축 완료, 삭제 실패: {d.Error}"
-            : $"완료 → {Path.GetFileName(a.ArchivePath)}";
+        // 결과 칸
+        string resultText = a.ArchivePath is not null && Path.GetFileName(a.ArchivePath) != name
+            ? $"완료 → {Path.GetFileName(a.ArchivePath)}"
+            : "완료";
+
+        if (a.CarriedOverEntries > 0)
+            resultText += " · 기존 zip에 합침";
+        if (a.SavedSeparately)
+            resultText += " · 기존 zip을 읽지 못해 따로 저장";
+
+        DayDeletion? firstFailure = result.Deletions.FirstOrDefault(d => !d.Result.Succeeded);
+        if (firstFailure is not null)
+            resultText += $" · 삭제 실패 {firstFailure.Day.Date:MM-dd}: {firstFailure.Result.Error}";
 
         var item = new ListViewItem(new[]
         {
-            date,
+            name,
+            days,
             original,
             ByteSize.ToDisplay(a.ArchiveBytes),
             reduction.ToString("P0"),
@@ -379,35 +427,37 @@ public partial class Form1 : Form
             resultText
         });
 
-        if (d is { Succeeded: false })
+        if (result.FailedDeletions > 0 || a.SavedSeparately)
             item.ForeColor = Color.DarkOrange;
 
         return item;
     }
 
-    private void ShowSummary(IReadOnlyList<DayBackupResult> results, DeleteMode deleteMode)
+    private void ShowSummary(IReadOnlyList<GroupBackupResult> results, DeleteMode deleteMode)
     {
         var archived = results.Where(r => r.Archive.Succeeded).ToList();
-        var deleted = results.Where(r => r.Deletion is { Succeeded: true }).ToList();
-
         int archiveFailed = results.Count - archived.Count;
-        int deleteFailed = results.Count(r => r.Deletion is { Succeeded: false });
 
-        long originalBytes = archived.Sum(r => r.Archive.Source.TotalBytes);
+        int archivedDays = archived.Sum(r => r.Archive.Group.Days.Count);
+        long originalBytes = archived.Sum(r => r.Archive.Group.TotalBytes);
         long archiveBytes = archived.Sum(r => r.Archive.ArchiveBytes);
 
         string message =
-            $"완료  ·  압축 {archived.Count}일" +
-            (archiveFailed > 0 ? $" (실패 {archiveFailed})" : "") +
+            $"완료  ·  압축 파일 {archived.Count}개 ({archivedDays}일)" +
+            (archiveFailed > 0 ? $"  ·  실패 {archiveFailed}개" : "") +
             $"  ·  {ByteSize.ToDisplay(originalBytes)} → {ByteSize.ToDisplay(archiveBytes)}";
+
+        var allDeletions = results.SelectMany(r => r.Deletions).ToList();
+        int deletedDays = allDeletions.Count(d => d.Result.Succeeded);
+        int deleteFailed = allDeletions.Count - deletedDays;
 
         if (deleteMode != DeleteMode.None)
         {
-            long deletedBytes = deleted.Sum(r => r.Archive.Source.TotalBytes);
-            message += $"\n원본 삭제 {deleted.Count}일 ({ByteSize.ToDisplay(deletedBytes)})" +
+            long deletedBytes = allDeletions.Where(d => d.Result.Succeeded).Sum(d => d.Day.TotalBytes);
+            message += $"\n원본 삭제 {deletedDays}일 ({ByteSize.ToDisplay(deletedBytes)})" +
                        (deleteFailed > 0 ? $"  ·  삭제 실패 {deleteFailed}일" : "");
 
-            if (deleteMode == DeleteMode.RecycleBin && deleted.Count > 0)
+            if (deleteMode == DeleteMode.RecycleBin && deletedDays > 0)
                 message += "  ·  휴지통을 비워야 공간이 확보됩니다";
         }
 
@@ -443,6 +493,7 @@ public partial class Form1 : Form
         dtpEndDate.Enabled = !busy;
         chkDeleteSource.Enabled = !busy;
         UpdateDeleteOptionState();
+        cboGrouping.Enabled = !busy;
         UseWaitCursor = busy;
     }
 
