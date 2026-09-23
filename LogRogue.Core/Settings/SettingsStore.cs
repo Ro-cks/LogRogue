@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
+using LogRogue.Core.Scheduling;
 
 namespace LogRogue.Core.Settings;
 
@@ -106,6 +107,23 @@ public sealed class SettingsStore
             settings.PeriodMode = PeriodMode.Absolute;
 
         settings.KeepRecentDays = BackupPeriod.Clamp(settings.KeepRecentDays);
+
+        settings.Schedule ??= new ScheduleSettings();
+        ScheduleSettings schedule = settings.Schedule;
+
+        if (!Enum.IsDefined(schedule.Mode))
+            schedule.Mode = ScheduleMode.Daily;
+
+        schedule.IntervalHours = Math.Clamp(
+            schedule.IntervalHours, ScheduleSettings.MinIntervalHours, ScheduleSettings.MaxIntervalHours);
+
+        // 요일이 중복되거나 비어 있으면 바로잡는다. 하나도 없으면 매주 방식이 영영 실행되지 않는다.
+        schedule.Weekdays = schedule.Weekdays is { Count: > 0 }
+            ? schedule.Weekdays.Where(Enum.IsDefined).Distinct().ToList()
+            : new List<DayOfWeek> { DayOfWeek.Monday };
+
+        if (schedule.Weekdays.Count == 0)
+            schedule.Weekdays.Add(DayOfWeek.Monday);
     }
 
     private string? BackupCorruptFile()

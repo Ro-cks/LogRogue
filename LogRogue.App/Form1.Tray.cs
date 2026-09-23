@@ -45,6 +45,7 @@ public partial class Form1
             openItem,
             _trayRunItem,
             new ToolStripMenuItem("작업 이력", null, (_, _) => ShowHistoryFromTray()),
+            new ToolStripMenuItem("예약 설정", null, (_, _) => ShowScheduleFromTray()),
             new ToolStripSeparator(),
             new ToolStripMenuItem("대상 폴더 열기", null, (_, _) => OpenFolder(txtSourcePath.Text)),
             new ToolStripMenuItem("출력 폴더 열기", null, (_, _) => OpenFolder(txtOutputPath.Text)),
@@ -174,6 +175,12 @@ public partial class Form1
     {
         RestoreFromTray();
         OpenHistory();   // Form1.cs
+    }
+
+    private void ShowScheduleFromTray()
+    {
+        RestoreFromTray();
+        OpenScheduleSettings();   // Form1.Schedule.cs
     }
 
     private void OpenFolder(string path)

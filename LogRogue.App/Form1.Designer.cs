@@ -51,6 +51,7 @@
             nudKeepDays = new NumericUpDown();
             label1 = new Label();
             btnHistory = new Button();
+            btnSchedule = new Button();
             ((System.ComponentModel.ISupportInitialize)nudKeepDays).BeginInit();
             SuspendLayout();
             // 
@@ -150,7 +151,7 @@
             // 
             // btnRun
             // 
-            btnRun.Location = new Point(565, 218);
+            btnRun.Location = new Point(565, 248);
             btnRun.Name = "btnRun";
             btnRun.Size = new Size(75, 23);
             btnRun.TabIndex = 11;
@@ -161,7 +162,7 @@
             // lblStatus
             // 
             lblStatus.AutoSize = true;
-            lblStatus.Location = new Point(354, 243);
+            lblStatus.Location = new Point(99, 276);
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(39, 15);
             lblStatus.TabIndex = 12;
@@ -169,9 +170,9 @@
             // 
             // lvResults
             // 
-            lvResults.Location = new Point(99, 284);
+            lvResults.Location = new Point(99, 319);
             lvResults.Name = "lvResults";
-            lvResults.Size = new Size(541, 212);
+            lvResults.Size = new Size(541, 177);
             lvResults.TabIndex = 13;
             lvResults.UseCompatibleStateImageBehavior = false;
             // 
@@ -243,11 +244,21 @@
             btnHistory.Text = "작업 이력";
             btnHistory.UseVisualStyleBackColor = true;
             // 
+            // btnSchedule
+            // 
+            btnSchedule.Location = new Point(465, 248);
+            btnSchedule.Name = "btnSchedule";
+            btnSchedule.Size = new Size(75, 23);
+            btnSchedule.TabIndex = 22;
+            btnSchedule.Text = "예약 설정";
+            btnSchedule.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(739, 512);
+            Controls.Add(btnSchedule);
             Controls.Add(btnHistory);
             Controls.Add(label1);
             Controls.Add(nudKeepDays);
@@ -302,5 +313,6 @@
         private NumericUpDown nudKeepDays;
         private Label label1;
         private Button btnHistory;
+        private Button btnSchedule;
     }
 }

@@ -1,5 +1,6 @@
 using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
+using LogRogue.Core.Scheduling;
 
 namespace LogRogue.Core.Settings;
 
@@ -40,4 +41,7 @@ public sealed class AppSettings
 
     /// <summary>상대 기간일 때 남겨둘 최근 일수.</summary>
     public int KeepRecentDays { get; set; } = 7;
+
+    /// <summary>예약 실행 설정.</summary>
+    public ScheduleSettings Schedule { get; set; } = new();
 }

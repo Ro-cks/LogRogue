@@ -14,7 +14,12 @@
     <Version>0.1.0</Version>
     <Authors>hwjung</Authors>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <ApplicationIcon>LogRogue.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="LogRogue.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\LogRogue.Core\LogRogue.Core.csproj" />

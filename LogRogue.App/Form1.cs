@@ -3,6 +3,7 @@ using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
 using LogRogue.Core.Diagnostics;
 using LogRogue.Core.History;
+using LogRogue.Core.Scheduling;
 using LogRogue.Core.Scanning;
 using LogRogue.Core.Settings;
 using LogRogue.Core.Startup;
@@ -80,6 +81,9 @@ public partial class Form1 : Form
         SetupAutoStart();
 
         btnHistory.Click += (_, _) => OpenHistory();
+        btnSchedule.Click += (_, _) => OpenScheduleSettings();
+
+        SetupSchedule();   // Form1.Schedule.cs
     }
 
     // ── 작업 이력 ────────────────────────────────────────
@@ -229,6 +233,8 @@ public partial class Form1 : Form
             }
         }
 
+        _schedule = settings.Schedule.Clone();
+
         _updatingPeriodControls = true;
         nudKeepDays.Value = Math.Clamp(settings.KeepRecentDays, nudKeepDays.Minimum, nudKeepDays.Maximum);
 
@@ -267,7 +273,8 @@ public partial class Form1 : Form
             : DeleteMode.RecycleBin,
         Grouping = SelectedGrouping(),
         PeriodMode = SelectedPeriodMode(),
-        KeepRecentDays = (int)nudKeepDays.Value
+        KeepRecentDays = (int)nudKeepDays.Value,
+        Schedule = _schedule
     };
 
     /// <summary>
@@ -461,19 +468,7 @@ public partial class Form1 : Form
             }
 
             // ── 3단계: 압축 (+ 삭제) ─────────────────────
-            SetBusy(true);
-            lvResults.Items.Clear();
-
-            // Progress는 만든 스레드(UI 스레드)로 알아서 보고를 넘겨준다
-            var progress = new Progress<BackupProgress>(OnProgress);
-
-            DateTime startedAt = DateTime.Now;
-
-            IReadOnlyList<GroupBackupResult> results = await Task.Run(
-                () => _job.Run(plan, deleteMode, progress));
-
-            SaveHistory(plan, deleteMode, results, startedAt, trigger);
-            ShowSummary(results, deleteMode);
+            await ExecuteBackupAsync(plan, deleteMode, trigger);
         }
         catch (Exception ex)
         {
@@ -484,6 +479,24 @@ public partial class Form1 : Form
         {
             SetBusy(false);
         }
+    }
+
+    /// <summary>계획대로 압축·삭제를 실행하고 결과를 표시·기록한다. 수동 실행과 예약 실행이 함께 쓴다.</summary>
+    private async Task ExecuteBackupAsync(BackupPlan plan, DeleteMode deleteMode, RunTrigger trigger)
+    {
+        SetBusy(true);
+        lvResults.Items.Clear();
+
+        // Progress는 만든 스레드(UI 스레드)로 알아서 보고를 넘겨준다
+        var progress = new Progress<BackupProgress>(OnProgress);
+
+        DateTime startedAt = DateTime.Now;
+
+        IReadOnlyList<GroupBackupResult> results = await Task.Run(
+            () => _job.Run(plan, deleteMode, progress));
+
+        SaveHistory(plan, deleteMode, results, startedAt, trigger);
+        ShowSummary(results, deleteMode, trigger);
     }
 
     // ── 진행 상황과 결과 표시 ─────────────────────────────
@@ -565,7 +578,7 @@ public partial class Form1 : Form
         return item;
     }
 
-    private void ShowSummary(IReadOnlyList<GroupBackupResult> results, DeleteMode deleteMode)
+    private void ShowSummary(IReadOnlyList<GroupBackupResult> results, DeleteMode deleteMode, RunTrigger trigger)
     {
         var archived = results.Where(r => r.Archive.Succeeded).ToList();
         int archiveFailed = results.Count - archived.Count;
@@ -596,8 +609,13 @@ public partial class Form1 : Form
         bool anyProblem = archiveFailed > 0 || deleteFailed > 0;
         ShowStatus(message, anyProblem ? Color.DarkOrange : Color.Black);
 
-        // 창을 숨겨둔 사이에 끝났으면 트레이 알림으로 알려준다
-        if (!Visible)
+        // 창을 숨겨둔 사이에 끝났거나 예약 실행이었으면 트레이 알림으로 알려준다
+        bool notify = !Visible || trigger == RunTrigger.Scheduled;
+
+        if (notify && _schedule.NotifyOnlyOnProblem && !anyProblem)
+            notify = false;
+
+        if (notify)
         {
             _trayIcon.ShowBalloonTip(
                 5000,
@@ -614,10 +632,11 @@ public partial class Form1 : Form
         _isRunning = busy;
         _trayRunItem.Enabled = !busy;
         if (!busy)
-            _trayIcon.Text = AppName;
+            UpdateScheduleDisplay();   // 대기 상태에서는 다음 예약 시각을 보여준다
 
         btnRun.Enabled = !busy;
         btnHistory.Enabled = !busy;
+        btnSchedule.Enabled = !busy;
         btnBrowseSource.Enabled = !busy;
         btnBrowseOutput.Enabled = !busy;
         txtSourcePath.ReadOnly = busy;
