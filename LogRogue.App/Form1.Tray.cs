@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LogRogue.Core.History;
 
 namespace LogRogue.App;
 
@@ -43,6 +44,7 @@ public partial class Form1
         {
             openItem,
             _trayRunItem,
+            new ToolStripMenuItem("작업 이력", null, (_, _) => ShowHistoryFromTray()),
             new ToolStripSeparator(),
             new ToolStripMenuItem("대상 폴더 열기", null, (_, _) => OpenFolder(txtSourcePath.Text)),
             new ToolStripMenuItem("출력 폴더 열기", null, (_, _) => OpenFolder(txtOutputPath.Text)),
@@ -162,7 +164,16 @@ public partial class Form1
 
         // 실행 버튼을 누른 것과 똑같이 동작한다. 확인 창도 똑같이 뜬다.
         if (btnRun.Enabled && !_dialogOpen)
+        {
+            _nextTrigger = RunTrigger.Tray;   // 이력에 트레이에서 실행했다고 남기기 위해
             btnRun.PerformClick();
+        }
+    }
+
+    private void ShowHistoryFromTray()
+    {
+        RestoreFromTray();
+        OpenHistory();   // Form1.cs
     }
 
     private void OpenFolder(string path)

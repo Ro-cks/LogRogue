@@ -1,6 +1,8 @@
 using LogRogue.Core;
 using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
+using LogRogue.Core.Diagnostics;
+using LogRogue.Core.History;
 using LogRogue.Core.Scanning;
 using LogRogue.Core.Settings;
 using LogRogue.Core.Startup;
@@ -9,8 +11,13 @@ namespace LogRogue.App;
 
 public partial class Form1 : Form
 {
-    private readonly BackupJob _job = new();
+    private readonly BackupJob _job;
+    private readonly IAppLog _log;
     private readonly SettingsStore _settingsStore = new();
+    private readonly RunHistoryStore _historyStore = new();
+
+    /// <summary>다음 실행이 어떻게 시작됐는지. 트레이 메뉴로 실행하면 잠깐 Tray가 된다.</summary>
+    private RunTrigger _nextTrigger = RunTrigger.Manual;
 
     /// <summary>스캔·압축·삭제 중인지. 종료 확인에 쓴다.</summary>
     private bool _isRunning;
@@ -45,12 +52,15 @@ public partial class Form1 : Form
     }
 
     /// <summary>디자이너가 사용하는 기본 생성자.</summary>
-    public Form1() : this(startInTray: false) { }
+    public Form1() : this(startInTray: false, NullLog.Instance) { }
 
     /// <param name="startInTray">true면 창을 띄우지 않고 트레이에만 뜬다. (부팅 자동 실행)</param>
-    public Form1(bool startInTray)
+    /// <param name="log">프로그램 동작 기록.</param>
+    public Form1(bool startInTray, IAppLog log)
     {
         _startHidden = startInTray;   // InitializeComponent보다 먼저 정해야 창이 번쩍 떴다 사라지지 않는다
+        _log = log;
+        _job = new BackupJob(log);
 
         InitializeComponent();
 
@@ -68,6 +78,44 @@ public partial class Form1 : Form
         // 콤보박스 항목이 채워진 뒤에 설정을 적용해야 삭제 방식을 고를 수 있다
         LoadSettings();
         SetupAutoStart();
+
+        btnHistory.Click += (_, _) => OpenHistory();
+    }
+
+    // ── 작업 이력 ────────────────────────────────────────
+
+    /// <summary>이력 창을 연다. 트레이 메뉴에서도 호출된다. (Form1.Tray.cs)</summary>
+    private void OpenHistory()
+    {
+        if (_dialogOpen)
+            return;
+
+        IReadOnlyList<RunHistoryEntry> entries = _historyStore.LoadRecent();
+
+        using var history = new HistoryForm(entries, AppPaths.LogsDirectory);
+
+        _dialogOpen = true;
+        history.ShowDialog(this);
+        _dialogOpen = false;
+    }
+
+    /// <summary>실행 결과를 이력에 남긴다. 실패해도 백업 자체에는 지장이 없다.</summary>
+    private void SaveHistory(
+        BackupPlan plan,
+        DeleteMode deleteMode,
+        IReadOnlyList<GroupBackupResult> results,
+        DateTime startedAt,
+        RunTrigger trigger)
+    {
+        try
+        {
+            _historyStore.Append(
+                RunHistoryEntry.Create(plan, deleteMode, results, startedAt, DateTime.Now, trigger));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log.Error("작업 이력을 저장하지 못했습니다.", ex);
+        }
     }
 
     // ── 부팅 시 자동 실행 ────────────────────────────────
@@ -107,6 +155,8 @@ public partial class Form1 : Form
         }
 
         AutoStartState state = RefreshAutoStartCheckbox();
+
+        _log.Info($"자동 실행 설정 변경: {state}");
 
         if (state == AutoStartState.On)
             ShowStatus("Windows에 로그인하면 트레이에서 자동으로 실행됩니다.", Color.Black);
@@ -159,7 +209,10 @@ public partial class Form1 : Form
         ApplySettings(loaded.Settings);
 
         if (loaded.Warning is not null)
+        {
+            _log.Warn(loaded.Warning);
             ShowStatus(loaded.Warning, Color.DarkOrange);
+        }
     }
 
     private void ApplySettings(AppSettings settings)
@@ -229,7 +282,7 @@ public partial class Form1 : Form
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // 무시
+            _log.Error("설정을 저장하지 못했습니다.", ex);
         }
     }
 
@@ -368,6 +421,10 @@ public partial class Form1 : Form
         DeleteMode deleteMode = SelectedDeleteMode();
         ArchiveGrouping grouping = SelectedGrouping();
 
+        // 트레이에서 실행했는지 여기서 확정하고 원래대로 돌려둔다
+        RunTrigger trigger = _nextTrigger;
+        _nextTrigger = RunTrigger.Manual;
+
         // 실제로 실행한 값은 다음에 켤 때도 쓰이도록 바로 저장해둔다
         TrySaveSettings();
 
@@ -410,13 +467,17 @@ public partial class Form1 : Form
             // Progress는 만든 스레드(UI 스레드)로 알아서 보고를 넘겨준다
             var progress = new Progress<BackupProgress>(OnProgress);
 
+            DateTime startedAt = DateTime.Now;
+
             IReadOnlyList<GroupBackupResult> results = await Task.Run(
                 () => _job.Run(plan, deleteMode, progress));
 
+            SaveHistory(plan, deleteMode, results, startedAt, trigger);
             ShowSummary(results, deleteMode);
         }
         catch (Exception ex)
         {
+            _log.Error("백업을 실행하지 못했습니다.", ex);
             ShowStatus(ex.Message, Color.Firebrick);
         }
         finally
@@ -556,6 +617,7 @@ public partial class Form1 : Form
             _trayIcon.Text = AppName;
 
         btnRun.Enabled = !busy;
+        btnHistory.Enabled = !busy;
         btnBrowseSource.Enabled = !busy;
         btnBrowseOutput.Enabled = !busy;
         txtSourcePath.ReadOnly = busy;

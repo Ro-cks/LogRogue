@@ -1,3 +1,5 @@
+using LogRogue.Core;
+using LogRogue.Core.Diagnostics;
 using LogRogue.Core.Startup;
 
 namespace LogRogue.App;
@@ -33,13 +35,18 @@ internal static class Program
         bool startInTray = args.Any(a =>
             string.Equals(a, AutoStartRegistration.TrayArgument, StringComparison.OrdinalIgnoreCase));
 
-        var form = new Form1(startInTray);
+        var log = new FileLog(AppPaths.LogsDirectory);
+        log.Info($"프로그램 시작 ({(startInTray ? "트레이" : "창")})");
+
+        var form = new Form1(startInTray, log);
 
         // 창의 핸들(Windows가 창을 식별하는 번호)이 생긴 뒤에야 다른 스레드에서 창을 다룰 수 있다.
         // 그 전에 도착한 신호는 사라지지 않고 기다리고 있다가, 듣기 시작하는 순간 전달된다.
         form.HandleCreated += (_, _) => instance.StartListening(() => BringToFront(form));
 
         Application.Run(form);
+
+        log.Info("프로그램 종료");
     }
 
     /// <summary>백그라운드 스레드에서 불린다. 창 조작은 BeginInvoke로 UI 스레드에 맡긴다.</summary>

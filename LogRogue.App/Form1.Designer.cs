@@ -50,6 +50,7 @@
             cboPeriodMode = new ComboBox();
             nudKeepDays = new NumericUpDown();
             label1 = new Label();
+            btnHistory = new Button();
             ((System.ComponentModel.ISupportInitialize)nudKeepDays).BeginInit();
             SuspendLayout();
             // 
@@ -140,7 +141,7 @@
             // chkDeleteSource
             // 
             chkDeleteSource.AutoSize = true;
-            chkDeleteSource.Location = new Point(354, 221);
+            chkDeleteSource.Location = new Point(229, 221);
             chkDeleteSource.Name = "chkDeleteSource";
             chkDeleteSource.Size = new Size(78, 19);
             chkDeleteSource.TabIndex = 10;
@@ -177,7 +178,7 @@
             // cboDeleteMode
             // 
             cboDeleteMode.FormattingEnabled = true;
-            cboDeleteMode.Location = new Point(438, 219);
+            cboDeleteMode.Location = new Point(313, 219);
             cboDeleteMode.Name = "cboDeleteMode";
             cboDeleteMode.Size = new Size(121, 23);
             cboDeleteMode.TabIndex = 14;
@@ -233,11 +234,21 @@
             label1.TabIndex = 20;
             label1.Text = "설정된 날은 남기고, 이전 날들을 포함합니다.";
             // 
+            // btnHistory
+            // 
+            btnHistory.Location = new Point(465, 219);
+            btnHistory.Name = "btnHistory";
+            btnHistory.Size = new Size(75, 23);
+            btnHistory.TabIndex = 21;
+            btnHistory.Text = "작업 이력";
+            btnHistory.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(739, 512);
+            Controls.Add(btnHistory);
             Controls.Add(label1);
             Controls.Add(nudKeepDays);
             Controls.Add(cboPeriodMode);
@@ -290,5 +301,6 @@
         private ComboBox cboPeriodMode;
         private NumericUpDown nudKeepDays;
         private Label label1;
+        private Button btnHistory;
     }
 }

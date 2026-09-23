@@ -36,10 +36,7 @@ public sealed class SettingsStore
         FilePath = filePath;
     }
 
-    public static string DefaultFilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "LogRogue",
-        "settings.json");
+    public static string DefaultFilePath => AppPaths.SettingsFile;
 
     public string FilePath { get; }
 
