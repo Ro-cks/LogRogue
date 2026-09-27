@@ -1,4 +1,4 @@
-; LogRogue 설치 스크립트 (Inno Setup)
+﻿; LogRogue 설치 스크립트 (Inno Setup)
 ;
 ; 쓰는 법
 ;   1. https://jrsoftware.org 에서 Inno Setup 설치
@@ -6,13 +6,13 @@
 ;   3. 이 파일을 Inno Setup Compiler로 열고 F9 (Compile)
 ;   4. installer 폴더에 LogRogue-Setup-x.x.x.exe 생성됨
 
-#define AppName "Log Rogue"
+#define AppName "로그로그"
 #define AppVersion "1.0.0.0"
 #define AppPublisher "Famecs"
 #define ExeName "Log Rogue.exe"
 
 ; 게시 결과물 위치. dotnet publish 결과 경로와 맞춰야 한다.
-#define SourceExe "..\LogRogue.App\bin\Release\net10.0-windows\win-x64\publish\Log Rogue.exe"
+#define SourceExe "..\LogRogue.App\bin\Release\net10.0-windows\publish\win-x64\" + ExeName
 
 [Setup]
 ; AppId는 이 프로그램을 식별하는 고유 값이다.
@@ -21,11 +21,11 @@ AppId={{8F3A21C7-5D4E-4B9A-9C2F-1E7B6A0D4F58}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
-DefaultDirName={autopf}\{#AppName}
+DefaultDirName={autopf}\LogRogue
 DefaultGroupName={#AppName}
 UninstallDisplayIcon={app}\{#ExeName}
 OutputDir=installer
-OutputBaseFilename={#AppName}-Setup-{#AppVersion}
+OutputBaseFilename=LogRogue-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

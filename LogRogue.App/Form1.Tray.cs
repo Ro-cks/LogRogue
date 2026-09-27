@@ -16,7 +16,14 @@ namespace LogRogue.App;
 /// </summary>
 public partial class Form1
 {
-    private const string AppName = "LogRogue";
+    /// <summary>사용자에게 보이는 프로그램 이름. 창 제목, 트레이, 알림에 쓴다.</summary>
+    private const string AppName = "로그로그";
+
+    /// <summary>
+    /// 자동 실행 레지스트리 값 이름. 사용자에게 보이지 않는 내부 식별자라 바꾸지 않는다.
+    /// 바꾸면 이미 등록된 자동 실행 항목이 남아버리고, 설치 프로그램의 제거 스크립트와도 어긋난다.
+    /// </summary>
+    private const string AutoStartValueName = "LogRogue";
 
     private NotifyIcon _trayIcon = null!;
     private ContextMenuStrip _trayMenu = null!;

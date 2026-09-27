@@ -76,6 +76,12 @@ public partial class Form1 : Form
 
         InitializeComponent();
 
+        // 창 제목과 크기 고정은 디자이너 값과 상관없이 여기서 확정한다.
+        // 디자이너에서 실수로 바뀌어도 실행 결과는 항상 같다.
+        Text = AppName;
+        FormBorderStyle = FormBorderStyle.FixedSingle;   // 테두리를 끌어서 크기를 바꿀 수 없다
+        MaximizeBox = false;                             // 최대화 버튼과 제목 표시줄 더블클릭 최대화를 막는다
+
         // 기본 기간: 30일 전부터 어제까지
         dtpEndDate.Value = DateTime.Today.AddDays(-1);
         dtpStartDate.Value = DateTime.Today.AddDays(-30);
@@ -151,7 +157,7 @@ public partial class Form1 : Form
             return;
         }
 
-        _autoStart = new AutoStartRegistration(AppName, exePath);
+        _autoStart = new AutoStartRegistration(AutoStartValueName, exePath);
         RefreshAutoStartCheckbox();
 
         chkAutoStart.CheckedChanged += (_, _) => OnAutoStartToggled();
@@ -206,15 +212,15 @@ public partial class Form1 : Form
         if (state == AutoStartState.OnElsewhere)
         {
             ShowStatus(
-                $"자동 실행이 다른 위치의 LogRogue로 등록되어 있습니다: {_autoStart.GetRegisteredPath()}\n" +
+                $"자동 실행이 다른 위치의 {AppName}(으)로 등록되어 있습니다: {_autoStart.GetRegisteredPath()}\n" +
                 "체크하면 지금 실행 중인 위치로 바뀝니다.",
                 Color.DarkOrange);
         }
         else if (state == AutoStartState.BlockedByWindows)
         {
             ShowStatus(
-                "Windows 시작 앱 설정에서 LogRogue가 꺼져 있어 자동 실행되지 않습니다.\n" +
-                "작업 관리자 → 시작 앱에서 LogRogue를 사용으로 바꾸세요.",
+                $"Windows 시작 앱 설정에서 {AppName}이(가) 꺼져 있어 자동 실행되지 않습니다.\n" +
+                $"작업 관리자 → 시작 앱에서 {AppName}을(를) 사용으로 바꾸세요.",
                 Color.DarkOrange);
         }
 
