@@ -7,7 +7,7 @@
 ;   4. installer 폴더에 LogRogue-Setup-x.x.x.exe 생성됨
 
 #define AppName "로그로그"
-#define AppVersion "1.0.0.0"
+#define AppVersion "0.2.0"
 #define AppPublisher "Famecs"
 #define ExeName "Log Rogue.exe"
 

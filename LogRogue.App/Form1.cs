@@ -106,6 +106,7 @@ public partial class Form1 : Form
         lvJobs.GridLines = true;
         lvJobs.MultiSelect = false;
         lvJobs.HideSelection = false;
+        lvJobs.CenterColumnHeaders();
 
         lvJobs.Columns.Clear();
         lvJobs.Columns.Add("작업", 110);
@@ -449,6 +450,7 @@ public partial class Form1 : Form
         lvResults.FullRowSelect = true;
         lvResults.GridLines = true;
         lvResults.MultiSelect = false;
+        lvResults.CenterColumnHeaders();
 
         lvResults.Columns.Clear();
         lvResults.Columns.Add("압축 파일", 175);

@@ -145,6 +145,7 @@ public sealed class PreviewForm : Form
             GridLines = true,
             MultiSelect = false
         };
+        list.CenterColumnHeaders();
 
         list.Columns.Add("압축 파일", 190);
         list.Columns.Add("포함 날짜", 140);

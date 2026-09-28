@@ -324,9 +324,23 @@ public sealed class JobForm : Form
 
         if (errors.Count > 0)
         {
-            _errors.Text = string.Join(Environment.NewLine, errors.Select(e => "· " + e));
+            // 이유는 설명이 길어서 창 안에 다 들어가지 않는다.
+            // 창 안에는 한 줄만 남기고, 전체 이유는 알림 창으로 보여준다.
+            _errors.Text = errors.Count == 1
+                ? "저장할 수 없습니다. 이유를 확인하고 설정을 고쳐주세요."
+                : $"저장할 수 없습니다. (문제 {errors.Count}건) 이유를 확인하고 설정을 고쳐주세요.";
+
+            MessageBox.Show(
+                this,
+                string.Join(Environment.NewLine + Environment.NewLine, errors.Select(e => "· " + e)),
+                "작업을 저장할 수 없습니다",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+
             return;
         }
+
+        _errors.Text = "";
 
         Result = job;
         DialogResult = DialogResult.OK;

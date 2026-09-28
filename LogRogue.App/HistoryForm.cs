@@ -64,6 +64,7 @@ public sealed class HistoryForm : Form
         _list.GridLines = true;
         _list.MultiSelect = false;
         _list.HideSelection = false;
+        _list.CenterColumnHeaders();
 
         _list.Columns.Add("작업", 95);
         _list.Columns.Add("실행 시각", 120);
