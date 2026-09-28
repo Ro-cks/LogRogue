@@ -104,6 +104,7 @@ public partial class Form1 : Form
 
         btnHistory.Click += (_, _) => OpenHistory();
         btnSchedule.Click += (_, _) => OpenScheduleSettings();
+        btnAbout.Click += (_, _) => OpenAbout();
 
         SetupSchedule();   // Form1.Schedule.cs
     }
@@ -122,6 +123,19 @@ public partial class Form1 : Form
 
         _dialogOpen = true;
         history.ShowDialog(this);
+        _dialogOpen = false;
+    }
+
+    /// <summary>프로그램 정보 창을 연다. 트레이 메뉴에서도 호출된다. (Form1.Tray.cs)</summary>
+    private void OpenAbout()
+    {
+        if (_dialogOpen)
+            return;
+
+        using var about = new AboutForm(_trayIcon.Icon);
+
+        _dialogOpen = true;
+        about.ShowDialog(this);
         _dialogOpen = false;
     }
 

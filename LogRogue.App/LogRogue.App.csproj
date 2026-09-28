@@ -10,7 +10,7 @@
     <Company>Famecs</Company>
     <Product>로그로그</Product>
 	<AssemblyTitle>로그로그</AssemblyTitle>
-    <Description>로그 백업 유틸리티</Description>
+    <Description>장비 로그 백업 유틸리티</Description>
     <Copyright>Copyright © 2026 Famecs</Copyright>
     <Version>0.1.0</Version>
     <Authors>hwjung</Authors>
@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <Content Include="LogRogue.ico" />
+	<AssemblyMetadata Include="Developer" Value="hwjung" />
+	<AssemblyMetadata Include="Contact" Value="https://github.com/Ro-cks" />
   </ItemGroup>
 
   <ItemGroup>

@@ -57,6 +57,7 @@ public partial class Form1
             new ToolStripMenuItem("대상 폴더 열기", null, (_, _) => OpenFolder(txtSourcePath.Text)),
             new ToolStripMenuItem("출력 폴더 열기", null, (_, _) => OpenFolder(txtOutputPath.Text)),
             new ToolStripSeparator(),
+            new ToolStripMenuItem("정보", null, (_, _) => ShowAboutFromTray()),
             new ToolStripMenuItem("종료", null, (_, _) => ExitFromTray())
         });
 
@@ -182,6 +183,12 @@ public partial class Form1
     {
         RestoreFromTray();
         OpenHistory();   // Form1.cs
+    }
+
+    private void ShowAboutFromTray()
+    {
+        RestoreFromTray();
+        OpenAbout();   // Form1.cs
     }
 
     private void ShowScheduleFromTray()

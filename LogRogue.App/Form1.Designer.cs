@@ -52,6 +52,7 @@
             label1 = new Label();
             btnHistory = new Button();
             btnSchedule = new Button();
+            btnAbout = new Button();
             ((System.ComponentModel.ISupportInitialize)nudKeepDays).BeginInit();
             SuspendLayout();
             // 
@@ -252,11 +253,21 @@
             btnSchedule.Text = "예약 설정";
             btnSchedule.UseVisualStyleBackColor = true;
             // 
+            // btnAbout
+            // 
+            btnAbout.Location = new Point(12, 12);
+            btnAbout.Name = "btnAbout";
+            btnAbout.Size = new Size(75, 23);
+            btnAbout.TabIndex = 23;
+            btnAbout.Text = "정보";
+            btnAbout.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(739, 512);
+            Controls.Add(btnAbout);
             Controls.Add(btnSchedule);
             Controls.Add(btnHistory);
             Controls.Add(label1);
@@ -315,5 +326,6 @@
         private Label label1;
         private Button btnHistory;
         private Button btnSchedule;
+        private Button btnAbout;
     }
 }
