@@ -11,9 +11,10 @@
     <Product>로그로그</Product>
 	<AssemblyTitle>로그로그</AssemblyTitle>
     <Description>장비 로그 백업 유틸리티</Description>
+	<Authors>hwjung</Authors>
     <Copyright>Copyright © 2026 Famecs</Copyright>
-    <Version>0.1.0</Version>
-    <Authors>hwjung</Authors>
+    <Version>0.2.0</Version>
+	<FileVersion>0.2.0.0</FileVersion>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <ApplicationIcon>LogRogue.ico</ApplicationIcon>
   </PropertyGroup>
