@@ -22,6 +22,12 @@ public sealed class RunHistoryEntry
     /// <summary>문제 목록에 담을 최대 줄 수. 실패가 많아도 이력 파일이 커지지 않도록 제한한다.</summary>
     public const int MaxProblems = 20;
 
+    /// <summary>어느 작업의 실행인지. 작업이 하나뿐이던 때의 기록에는 비어 있다.</summary>
+    public string JobId { get; set; } = "";
+
+    /// <summary>실행 당시의 작업 이름. 나중에 이름을 바꿔도 기록은 그대로 남는다.</summary>
+    public string JobName { get; set; } = "";
+
     public DateTime StartedAt { get; set; }
     public DateTime FinishedAt { get; set; }
     public RunTrigger Trigger { get; set; }
@@ -53,6 +59,13 @@ public sealed class RunHistoryEntry
     public List<string> Problems { get; set; } = new();
 
     public TimeSpan Duration => FinishedAt - StartedAt;
+
+    /// <summary>
+    /// 이 기록이 가리키는 작업 식별자.
+    /// 작업이 하나뿐이던 때의 기록은 예전 설정에서 옮겨진 "기본 작업"의 것으로 본다.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string EffectiveJobId => string.IsNullOrEmpty(JobId) ? Jobs.JobConfig.LegacyId : JobId;
     public bool HasProblem => FailedGroups > 0 || FailedDeletions > 0;
 
     /// <summary>실행 결과에서 이력 한 건을 만든다.</summary>
@@ -62,13 +75,17 @@ public sealed class RunHistoryEntry
         IReadOnlyList<GroupBackupResult> results,
         DateTime startedAt,
         DateTime finishedAt,
-        RunTrigger trigger)
+        RunTrigger trigger,
+        string jobId = "",
+        string jobName = "")
     {
         var archived = results.Where(r => r.Archive.Succeeded).ToList();
         var allDeletions = results.SelectMany(r => r.Deletions).ToList();
 
         var entry = new RunHistoryEntry
         {
+            JobId = jobId,
+            JobName = jobName,
             StartedAt = startedAt,
             FinishedAt = finishedAt,
             Trigger = trigger,

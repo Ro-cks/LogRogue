@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using LogRogue.Core.History;
+using LogRogue.Core.Jobs;
 
 namespace LogRogue.App;
 
@@ -45,17 +46,15 @@ public partial class Form1
         var openItem = new ToolStripMenuItem("열기", null, (_, _) => RestoreFromTray());
         openItem.Font = new Font(_trayMenu.Font, FontStyle.Bold);   // 더블클릭과 같은 동작이라는 표시
 
-        _trayRunItem = new ToolStripMenuItem("지금 백업", null, (_, _) => RunFromTray());
+        // "지금 백업"은 작업 목록을 하위 메뉴로 가진다. 메뉴를 열 때마다 새로 채운다.
+        _trayRunItem = new ToolStripMenuItem("지금 백업");
+        _trayMenu.Opening += (_, _) => RebuildTrayRunMenu();
 
         _trayMenu.Items.AddRange(new ToolStripItem[]
         {
             openItem,
             _trayRunItem,
             new ToolStripMenuItem("작업 이력", null, (_, _) => ShowHistoryFromTray()),
-            new ToolStripMenuItem("예약 설정", null, (_, _) => ShowScheduleFromTray()),
-            new ToolStripSeparator(),
-            new ToolStripMenuItem("대상 폴더 열기", null, (_, _) => OpenFolder(txtSourcePath.Text)),
-            new ToolStripMenuItem("출력 폴더 열기", null, (_, _) => OpenFolder(txtOutputPath.Text)),
             new ToolStripSeparator(),
             new ToolStripMenuItem("정보", null, (_, _) => ShowAboutFromTray()),
             new ToolStripMenuItem("종료", null, (_, _) => ExitFromTray())
@@ -167,15 +166,33 @@ public partial class Form1
 
     // ── 트레이 메뉴 동작 ─────────────────────────────────
 
-    private void RunFromTray()
+    /// <summary>"지금 백업" 하위 메뉴를 현재 작업 목록으로 채운다.</summary>
+    private void RebuildTrayRunMenu()
+    {
+        _trayRunItem.DropDownItems.Clear();
+
+        if (_settings.Jobs.Count == 0)
+        {
+            _trayRunItem.DropDownItems.Add(new ToolStripMenuItem("작업 없음") { Enabled = false });
+            return;
+        }
+
+        foreach (JobConfig job in _settings.Jobs)
+        {
+            string id = job.Id;
+            _trayRunItem.DropDownItems.Add(new ToolStripMenuItem(job.Name, null, (_, _) => RunFromTray(id)));
+        }
+    }
+
+    /// <summary>창을 열고, 창에서 실행한 것과 똑같이 확인 창을 거쳐 실행한다.</summary>
+    private void RunFromTray(string jobId)
     {
         RestoreFromTray();
 
-        // 실행 버튼을 누른 것과 똑같이 동작한다. 확인 창도 똑같이 뜬다.
-        if (btnRun.Enabled && !_dialogOpen)
+        if (FindJob(jobId) is JobConfig job)
         {
-            _nextTrigger = RunTrigger.Tray;   // 이력에 트레이에서 실행했다고 남기기 위해
-            btnRun.PerformClick();
+            RefreshJobList(job.Id);   // 목록에서도 그 작업이 선택되어 보이도록
+            RunJobManually(job, RunTrigger.Tray);
         }
     }
 
@@ -189,12 +206,6 @@ public partial class Form1
     {
         RestoreFromTray();
         OpenAbout();   // Form1.cs
-    }
-
-    private void ShowScheduleFromTray()
-    {
-        RestoreFromTray();
-        OpenScheduleSettings();   // Form1.Schedule.cs
     }
 
     private void OpenFolder(string path)

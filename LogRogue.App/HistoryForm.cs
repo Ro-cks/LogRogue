@@ -34,7 +34,7 @@ public sealed class HistoryForm : Form
 
         Text = "작업 이력";
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(760, 500);
+        ClientSize = new Size(840, 500);
         MinimumSize = new Size(560, 380);
         MinimizeBox = false;
         ShowInTaskbar = false;
@@ -65,11 +65,12 @@ public sealed class HistoryForm : Form
         _list.MultiSelect = false;
         _list.HideSelection = false;
 
-        _list.Columns.Add("실행 시각", 135);
+        _list.Columns.Add("작업", 95);
+        _list.Columns.Add("실행 시각", 120);
         _list.Columns.Add("소요", 60, HorizontalAlignment.Right);
         _list.Columns.Add("방식", 55);
         _list.Columns.Add("단위", 60);
-        _list.Columns.Add("압축", 165);
+        _list.Columns.Add("압축", 160);
         _list.Columns.Add("원본 삭제", 85);
         _list.Columns.Add("결과", 110);
 
@@ -79,6 +80,7 @@ public sealed class HistoryForm : Form
         {
             var item = new ListViewItem(new[]
             {
+                JobNameText(entry),
                 entry.StartedAt.ToString("yyyy-MM-dd HH:mm"),
                 FormatDuration(entry.Duration),
                 TriggerText(entry.Trigger),
@@ -123,6 +125,7 @@ public sealed class HistoryForm : Form
         RunHistoryEntry entry = _entries[_list.SelectedIndices[0]];
 
         var text = new StringBuilder();
+        text.AppendLine($"작업: {JobNameText(entry)}");
         text.AppendLine($"기간: {entry.Period}");
         text.AppendLine($"대상 폴더: {entry.SourceRoot}");
         text.AppendLine($"출력 폴더: {entry.OutputDirectory}");
@@ -188,6 +191,10 @@ public sealed class HistoryForm : Form
     }
 
     // ── 표시용 문자열 ────────────────────────────────────
+
+    /// <summary>작업이 하나뿐이던 때의 기록에는 이름이 없으므로 "기본 작업"으로 보여준다.</summary>
+    private static string JobNameText(RunHistoryEntry entry)
+        => entry.JobName.Length > 0 ? entry.JobName : "기본 작업";
 
     private static string FormatDuration(TimeSpan duration)
         => duration.TotalMinutes >= 1

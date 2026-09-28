@@ -16,7 +16,8 @@ namespace LogRogue.App;
 [DesignerCategory("Code")]
 public sealed class PreviewForm : Form
 {
-    public PreviewForm(BackupPlan plan, DeleteMode deleteMode)
+    /// <param name="jobName">작업 이름. 창 제목에 표시한다.</param>
+    public PreviewForm(BackupPlan plan, DeleteMode deleteMode, string jobName = "")
     {
         SuspendLayout();
 
@@ -24,7 +25,7 @@ public sealed class PreviewForm : Form
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
 
-        Text = "압축 대상 확인";
+        Text = jobName.Length > 0 ? $"압축 대상 확인 - {jobName}" : "압축 대상 확인";
         StartPosition = FormStartPosition.CenterParent;
         ClientSize = new Size(660, 460);
         MinimumSize = new Size(480, 340);

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
+using LogRogue.Core.Jobs;
 using LogRogue.Core.Scheduling;
 
 namespace LogRogue.Core.Settings;
@@ -93,23 +94,99 @@ public sealed class SettingsStore
     /// <summary>파일을 손으로 고쳤거나 옛 형식일 때 이상한 값을 바로잡는다.</summary>
     private static void Normalize(AppSettings settings)
     {
-        settings.SourcePath ??= "";
-        settings.OutputPath ??= "";
+        settings.Jobs ??= new List<JobConfig>();
 
-        // 설정 화면에서 고를 수 있는 건 휴지통과 영구 삭제 둘뿐이다
-        if (settings.DeleteMode is not (DeleteMode.RecycleBin or DeleteMode.Permanent))
-            settings.DeleteMode = DeleteMode.RecycleBin;
+        MigrateVersion1(settings);
 
-        if (!Enum.IsDefined(settings.Grouping))
-            settings.Grouping = ArchiveGrouping.Daily;
+        var usedIds = new HashSet<string>(StringComparer.Ordinal);
+        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (!Enum.IsDefined(settings.PeriodMode))
-            settings.PeriodMode = PeriodMode.Absolute;
+        foreach (JobConfig job in settings.Jobs)
+        {
+            NormalizeJob(job);
 
-        settings.KeepRecentDays = BackupPeriod.Clamp(settings.KeepRecentDays);
+            // 식별자나 이름이 겹치면 이력이 섞이거나 목록에서 구분되지 않으므로 바로잡는다
+            if (string.IsNullOrWhiteSpace(job.Id) || !usedIds.Add(job.Id))
+            {
+                job.Id = JobConfig.NewId();
+                usedIds.Add(job.Id);
+            }
 
-        settings.Schedule ??= new ScheduleSettings();
-        ScheduleSettings schedule = settings.Schedule;
+            string baseName = string.IsNullOrWhiteSpace(job.Name) ? "작업" : job.Name.Trim();
+            string name = baseName;
+            for (int n = 2; !usedNames.Add(name); n++)
+                name = $"{baseName} {n}";
+            job.Name = name;
+        }
+
+        settings.Version = AppSettings.CurrentVersion;
+    }
+
+    /// <summary>
+    /// 작업이 하나뿐이던 예전 설정을 "기본 작업"으로 옮긴다.
+    /// 식별자를 고정값으로 두어 예전 작업 이력과 이어지게 한다.
+    /// 예약의 마지막 실행 시각도 그대로 옮겨서 예약이 끊기지 않는다.
+    /// </summary>
+    private static void MigrateVersion1(AppSettings settings)
+    {
+        bool hasVersion1 = settings.SourcePath is not null || settings.Schedule is not null;
+
+        if (hasVersion1 && settings.Jobs.Count == 0)
+        {
+            DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+
+            settings.Jobs.Add(new JobConfig
+            {
+                Id = JobConfig.LegacyId,
+                Name = "기본 작업",
+                SourcePath = settings.SourcePath ?? "",
+                OutputPath = settings.OutputPath ?? "",
+                PeriodMode = settings.PeriodMode ?? PeriodMode.Absolute,
+                StartDate = today.AddDays(-30),
+                EndDate = today.AddDays(-1),
+                KeepRecentDays = settings.KeepRecentDays ?? 7,
+                Grouping = settings.Grouping ?? ArchiveGrouping.Daily,
+                DeleteSource = settings.DeleteSource ?? false,
+                DeleteMode = settings.DeleteMode ?? Deletion.DeleteMode.RecycleBin,
+                Schedule = settings.Schedule ?? new ScheduleSettings()
+            });
+        }
+
+        settings.SourcePath = null;
+        settings.OutputPath = null;
+        settings.DeleteSource = null;
+        settings.DeleteMode = null;
+        settings.Grouping = null;
+        settings.PeriodMode = null;
+        settings.KeepRecentDays = null;
+        settings.Schedule = null;
+    }
+
+    private static void NormalizeJob(JobConfig job)
+    {
+        job.Name ??= "";
+        job.SourcePath ??= "";
+        job.OutputPath ??= "";
+
+        if (job.DeleteMode is not (DeleteMode.RecycleBin or DeleteMode.Permanent))
+            job.DeleteMode = DeleteMode.RecycleBin;
+
+        if (!Enum.IsDefined(job.Grouping))
+            job.Grouping = ArchiveGrouping.Daily;
+
+        if (!Enum.IsDefined(job.PeriodMode))
+            job.PeriodMode = PeriodMode.Relative;
+
+        job.KeepRecentDays = BackupPeriod.Clamp(job.KeepRecentDays);
+
+        DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+        if (job.StartDate == default)
+            job.StartDate = today.AddDays(-30);
+        if (job.EndDate == default)
+            job.EndDate = today.AddDays(-1);
+
+        job.Schedule ??= new ScheduleSettings();
+        ScheduleSettings schedule = job.Schedule;
 
         if (!Enum.IsDefined(schedule.Mode))
             schedule.Mode = ScheduleMode.Daily;
@@ -118,9 +195,10 @@ public sealed class SettingsStore
             schedule.IntervalHours, ScheduleSettings.MinIntervalHours, ScheduleSettings.MaxIntervalHours);
 
         // 요일이 중복되거나 비어 있으면 바로잡는다. 하나도 없으면 매주 방식이 영영 실행되지 않는다.
-        schedule.Weekdays = schedule.Weekdays is { Count: > 0 }
-            ? schedule.Weekdays.Where(Enum.IsDefined).Distinct().ToList()
-            : new List<DayOfWeek> { DayOfWeek.Monday };
+        schedule.Weekdays = (schedule.Weekdays ?? new List<DayOfWeek>())
+            .Where(Enum.IsDefined)
+            .Distinct()
+            .ToList();
 
         if (schedule.Weekdays.Count == 0)
             schedule.Weekdays.Add(DayOfWeek.Monday);
