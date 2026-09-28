@@ -14,8 +14,11 @@ public sealed class BackupPlan
     public required ArchiveGrouping Grouping { get; init; }
     public required BackupPeriod Period { get; init; }
 
-    /// <summary>기간에 해당하는 날짜 폴더 전체. 날짜순.</summary>
-    public required IReadOnlyList<LogDayFolder> Days { get; init; }
+    /// <summary>기간에 해당하는 날짜들. 날짜순.</summary>
+    public required IReadOnlyList<LogDay> Days { get; init; }
+
+    public int FileCount => Days.Sum(d => d.FileCount);
+    public long TotalBytes => Days.Sum(d => d.TotalBytes);
 
     /// <summary>압축 파일 단위로 묶은 결과. 묶음 하나가 압축 파일 하나가 된다.</summary>
     public required IReadOnlyList<ArchiveGroup> Groups { get; init; }

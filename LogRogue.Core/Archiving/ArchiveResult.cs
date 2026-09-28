@@ -18,6 +18,12 @@ public sealed class ArchiveResult
     /// <summary>같은 이름의 기존 압축 파일에서 옮겨 담은 항목 수. 새로 만들었으면 0.</summary>
     public int CarriedOverEntries { get; init; }
 
+    /// <summary>
+    /// 기존 압축 파일에 같은 경로의 다른 파일(다른 날 만들어진 같은 이름의 로그)이 있어서,
+    /// 기존 것에 날짜를 붙여 이름을 바꿔 보존한 항목 수.
+    /// </summary>
+    public int RenamedEntries { get; init; }
+
     /// <summary>기존 압축 파일을 읽지 못해 번호를 붙여 따로 저장했는지.</summary>
     public bool SavedSeparately { get; init; }
 

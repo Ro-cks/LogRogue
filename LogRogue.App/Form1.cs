@@ -572,16 +572,17 @@ public partial class Form1 : Form
             ? 1.0 - (double)a.ArchiveBytes / group.TotalBytes
             : 0;
 
-        // 원본 삭제 칸: 삭제 안 함 "-", 전부 성공 "휴지통 7일", 일부 실패 "5/7일"
+        // 원본 삭제 칸: 삭제 안 함 "-", 전부 성공 "휴지통 120개", 일부 남음 "118/120개"
+        int totalFiles = group.FileCount;
         string deleteText;
         if (result.Deletions.Count == 0)
             deleteText = "-";
         else if (result.FailedDeletions > 0)
-            deleteText = $"{result.DeletedDays}/{result.Deletions.Count}일";
+            deleteText = $"{result.DeletedFiles}/{totalFiles}개";
         else
             deleteText = result.Deletions[0].Result.Mode == DeleteMode.RecycleBin
-                ? $"휴지통 {result.DeletedDays}일"
-                : $"영구 {result.DeletedDays}일";
+                ? $"휴지통 {result.DeletedFiles}개"
+                : $"영구 {result.DeletedFiles}개";
 
         // 결과 칸
         string resultText = a.ArchivePath is not null && Path.GetFileName(a.ArchivePath) != name
@@ -590,12 +591,14 @@ public partial class Form1 : Form
 
         if (a.CarriedOverEntries > 0)
             resultText += " · 기존 zip에 합침";
+        if (a.RenamedEntries > 0)
+            resultText += $" · 이름이 같은 다른 파일 {a.RenamedEntries}개 보존";
         if (a.SavedSeparately)
             resultText += " · 기존 zip을 읽지 못해 따로 저장";
 
         DayDeletion? firstFailure = result.Deletions.FirstOrDefault(d => !d.Result.Succeeded);
         if (firstFailure is not null)
-            resultText += $" · 삭제 실패 {firstFailure.Day.Date:MM-dd}: {firstFailure.Result.Error}";
+            resultText += $" · 일부 남김 {firstFailure.Day.Date:MM-dd}: {firstFailure.Result.Error}";
 
         var item = new ListViewItem(new[]
         {
@@ -629,16 +632,16 @@ public partial class Form1 : Form
             $"  ·  {ByteSize.ToDisplay(originalBytes)} → {ByteSize.ToDisplay(archiveBytes)}";
 
         var allDeletions = results.SelectMany(r => r.Deletions).ToList();
-        int deletedDays = allDeletions.Count(d => d.Result.Succeeded);
-        int deleteFailed = allDeletions.Count - deletedDays;
+        int deletedFiles = allDeletions.Sum(d => d.Result.DeletedFiles);
+        int deleteFailed = allDeletions.Count(d => !d.Result.Succeeded);
 
         if (deleteMode != DeleteMode.None)
         {
-            long deletedBytes = allDeletions.Where(d => d.Result.Succeeded).Sum(d => d.Day.TotalBytes);
-            message += $"\n원본 삭제 {deletedDays}일 ({ByteSize.ToDisplay(deletedBytes)})" +
-                       (deleteFailed > 0 ? $"  ·  삭제 실패 {deleteFailed}일" : "");
+            long deletedBytes = allDeletions.Sum(d => d.Result.DeletedBytes);
+            message += $"\n원본 삭제 {deletedFiles}개 파일 ({ByteSize.ToDisplay(deletedBytes)})" +
+                       (deleteFailed > 0 ? $"  ·  일부 남은 날짜 {deleteFailed}일" : "");
 
-            if (deleteMode == DeleteMode.RecycleBin && deletedDays > 0)
+            if (deleteMode == DeleteMode.RecycleBin && deletedFiles > 0)
                 message += "  ·  휴지통을 비워야 공간이 확보됩니다";
         }
 

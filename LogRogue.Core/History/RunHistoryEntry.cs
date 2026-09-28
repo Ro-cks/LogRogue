@@ -45,6 +45,10 @@ public sealed class RunHistoryEntry
     public int DeletedDays { get; set; }
     public int FailedDeletions { get; set; }
 
+    /// <summary>지운 원본 파일 수. 이 항목이 생기기 전의 기록에는 0으로 남아 있다.</summary>
+    public int DeletedFiles { get; set; }
+    public long DeletedBytes { get; set; }
+
     /// <summary>실패 사유 목록.</summary>
     public List<string> Problems { get; set; } = new();
 
@@ -79,14 +83,16 @@ public sealed class RunHistoryEntry
             OriginalBytes = archived.Sum(r => r.Archive.Group.TotalBytes),
             ArchiveBytes = archived.Sum(r => r.Archive.ArchiveBytes),
             DeletedDays = allDeletions.Count(d => d.Result.Succeeded),
-            FailedDeletions = allDeletions.Count(d => !d.Result.Succeeded)
+            FailedDeletions = allDeletions.Count(d => !d.Result.Succeeded),
+            DeletedFiles = allDeletions.Sum(d => d.Result.DeletedFiles),
+            DeletedBytes = allDeletions.Sum(d => d.Result.DeletedBytes)
         };
 
         foreach (GroupBackupResult result in results.Where(r => !r.Archive.Succeeded))
             entry.AddProblem($"압축 실패 {result.Archive.Group.FileName}: {result.Archive.Error}");
 
         foreach (DayDeletion deletion in allDeletions.Where(d => !d.Result.Succeeded))
-            entry.AddProblem($"삭제 실패 {deletion.Day.Date:yyyy-MM-dd}: {deletion.Result.Error}");
+            entry.AddProblem($"일부 남김 {deletion.Day.Date:yyyy-MM-dd}: {deletion.Result.Error}");
 
         return entry;
     }

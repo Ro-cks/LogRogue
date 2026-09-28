@@ -2,13 +2,13 @@ using LogRogue.Core.Scanning;
 
 namespace LogRogue.Core.Archiving;
 
-/// <summary>날짜 폴더 목록을 압축 단위에 맞춰 묶는다.</summary>
+/// <summary>날짜별 파일 묶음을 압축 단위에 맞춰 다시 묶는다.</summary>
 public static class ArchiveGrouper
 {
     private const string DateFormat = "yyyy-MM-dd";
 
-    /// <param name="days">날짜순으로 정렬된 날짜 폴더 목록.</param>
-    public static IReadOnlyList<ArchiveGroup> Group(IReadOnlyList<LogDayFolder> days, ArchiveGrouping grouping)
+    /// <param name="days">날짜순으로 정렬된 날짜 목록.</param>
+    public static IReadOnlyList<ArchiveGroup> Group(IReadOnlyList<LogDay> days, ArchiveGrouping grouping)
     {
         if (days.Count == 0)
             return Array.Empty<ArchiveGroup>();

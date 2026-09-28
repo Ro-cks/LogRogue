@@ -129,8 +129,8 @@ public sealed class HistoryForm : Form
         text.AppendLine(
             $"압축 파일 {entry.ArchivedGroups}개 ({entry.ArchivedDays}일)" +
             (entry.FailedGroups > 0 ? $" · 실패 {entry.FailedGroups}개" : "") +
-            $" · 원본 삭제 {entry.DeletedDays}일" +
-            (entry.FailedDeletions > 0 ? $" · 삭제 실패 {entry.FailedDeletions}일" : ""));
+            $" · 원본 삭제 {DeleteText(entry)}" +
+            (entry.FailedDeletions > 0 ? $" · 일부 남은 날짜 {entry.FailedDeletions}일" : ""));
 
         if (entry.Problems.Count > 0)
         {
@@ -209,10 +209,18 @@ public sealed class HistoryForm : Form
         _ => "일별"
     };
 
-    private static string DeleteText(RunHistoryEntry entry) => entry.DeleteMode switch
+    private static string DeleteText(RunHistoryEntry entry)
     {
-        DeleteMode.RecycleBin => $"휴지통 {entry.DeletedDays}일",
-        DeleteMode.Permanent => $"영구 {entry.DeletedDays}일",
-        _ => "안 함"
-    };
+        // 예전 기록에는 파일 수가 없으므로 그때는 날짜 수로 보여준다
+        string amount = entry.DeletedFiles > 0 || entry.DeletedDays == 0
+            ? $"{entry.DeletedFiles}개"
+            : $"{entry.DeletedDays}일";
+
+        return entry.DeleteMode switch
+        {
+            DeleteMode.RecycleBin => $"휴지통 {amount}",
+            DeleteMode.Permanent => $"영구 {amount}",
+            _ => "안 함"
+        };
+    }
 }

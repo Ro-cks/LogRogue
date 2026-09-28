@@ -1,10 +1,14 @@
 using System.IO.Compression;
+using LogRogue.Core.Scanning;
 
 namespace LogRogue.Core.Archiving;
 
 /// <summary>
-/// 날짜 폴더 묶음 하나를 ZIP 파일 하나로 압축한다.
-/// 예: 2026-08-17 ~ 2026-08-23 폴더들  →  D:\Backup\2026-08-17_2026-08-23.zip
+/// 날짜 묶음 하나를 ZIP 파일 하나로 압축한다.
+/// 예: 수정한 날짜가 8/17 ~ 8/23인 파일들  →  D:\Backup\2026-08-17_2026-08-23.zip
+///
+/// 압축 파일 안에는 대상 폴더 기준의 원래 경로가 그대로 들어간다.
+/// 풀면 대상 폴더 아래에 있던 모양 그대로 복원된다.
 ///
 /// 처리 순서
 ///   1. 묶음 안 모든 파일의 목록과 크기를 기록
@@ -78,6 +82,7 @@ public sealed class LogArchiver
 
             string destination = finalPath;
             int carriedOver = 0;
+            int renamed = 0;
             bool savedSeparately = false;
 
             // using: 쓰기가 끝나면 기존 압축 파일을 닫는다.
@@ -86,7 +91,7 @@ public sealed class LogArchiver
             {
                 if (existing is not null)
                 {
-                    carriedOver = MergeExisting(existing, contents);
+                    (carriedOver, renamed) = MergeExisting(existing, contents);
                 }
                 else if (existedButUnreadable)
                 {
@@ -111,6 +116,7 @@ public sealed class LogArchiver
                 ArchivePath = destination,
                 ArchiveBytes = new FileInfo(destination).Length,
                 CarriedOverEntries = carriedOver,
+                RenamedEntries = renamed,
                 SavedSeparately = savedSeparately
             };
         }
@@ -127,29 +133,23 @@ public sealed class LogArchiver
 
     /// <summary>
     /// 압축 파일 안에 들어갈 항목 하나의 출처.
-    /// FilePath가 있으면 디스크의 원본 파일, null이면 기존 압축 파일 안의 같은 이름 항목이다.
+    /// FilePath가 있으면 디스크의 원본 파일이고,
+    /// null이면 기존 압축 파일 안의 ExistingName 항목을 옮겨 담는다.
     /// </summary>
-    private sealed record EntrySource(string? FilePath, long Length);
+    private sealed record EntrySource(string? FilePath, long Length, DateTime LastWriteTime, string? ExistingName);
 
     /// <summary>
     /// 묶음 안의 모든 파일을 "압축 파일 내부 경로 → 원본"으로 정리한다.
-    /// 내부 경로는 날짜 폴더명부터 시작한다. 예: 2026-08-20/globalfile/2026-08-20_global.log
-    /// 이렇게 해두면 여러 날짜가 한 압축 파일에 들어가도 풀었을 때 날짜 폴더별로 나뉜다.
+    /// 내부 경로는 대상 폴더 기준 상대 경로 그대로다.
+    ///   예) 대상 폴더\2026-08-20\globalfile\a.log  →  2026-08-20/globalfile/a.log
+    ///       대상 폴더\app_20260820.log             →  app_20260820.log
     /// </summary>
     private static Dictionary<string, EntrySource> CollectFiles(ArchiveGroup group)
     {
         var files = new Dictionary<string, EntrySource>(StringComparer.Ordinal);
 
-        foreach (var day in group.Days)
-        {
-            string dateName = Path.GetFileName(day.Path);
-
-            foreach (string fullPath in Directory.EnumerateFiles(day.Path, "*", FileEnumeration))
-            {
-                string relative = Path.GetRelativePath(day.Path, fullPath).Replace('\\', '/');
-                files.Add($"{dateName}/{relative}", new EntrySource(fullPath, new FileInfo(fullPath).Length));
-            }
-        }
+        foreach (LogFile file in group.Days.SelectMany(d => d.Files))
+            files.Add(file.RelativePath, new EntrySource(file.FullPath, file.Length, file.LastWriteTime, null));
 
         return files;
     }
@@ -177,28 +177,104 @@ public sealed class LogArchiver
     }
 
     /// <summary>
-    /// 기존 압축 파일의 항목들을 새로 압축할 목록에 합친다. 옮겨 담은 항목 수를 돌려준다.
+    /// 기존 압축 파일의 항목들을 새로 압축할 목록에 합친다.
+    /// 옮겨 담은 항목 수와, 그중 이름을 바꿔 보존한 항목 수를 돌려준다.
     ///
-    /// 기존에만 있는 항목: 원본이 이미 삭제된 날짜다. 그대로 옮겨 담는다.
-    /// 양쪽에 다 있는 항목: 더 큰 쪽을 남긴다. 로그는 뒤에 덧붙여지기만 하므로 큰 쪽이 더 완전하다.
+    /// 기존에만 있는 항목
+    ///   원본이 이미 삭제된 파일이다. 그대로 옮겨 담는다.
+    ///
+    /// 같은 경로가 양쪽에 있고 수정한 시각도 같은 항목
+    ///   같은 파일이다. 더 큰 쪽을 남긴다. 로그는 뒤에 덧붙여지기만 하므로 큰 쪽이 더 완전하다.
+    ///
+    /// 같은 경로가 양쪽에 있지만 수정한 시각이 다른 항목
+    ///   이름만 같은 다른 파일이다. 매일 같은 이름으로 새로 만들어지는 로그(app.log 등)가 그렇다.
+    ///   둘 다 남긴다. 디스크의 파일은 원래 이름으로, 기존 것은 이름 뒤에 시각을 붙여서.
+    ///     app.log  →  app (2026-08-20 153012).log
     /// </summary>
-    private static int MergeExisting(ZipArchive existing, Dictionary<string, EntrySource> contents)
+    private static (int CarriedOver, int Renamed) MergeExisting(ZipArchive existing, Dictionary<string, EntrySource> contents)
     {
+        var oldEntries = existing.Entries.Where(e => e.Name.Length > 0).ToList();
+
+        // 이름을 바꿀 때 기존 압축 파일 안의 다른 항목과 겹치지 않도록 미리 모든 이름을 알아둔다
+        var reservedNames = new HashSet<string>(oldEntries.Select(e => e.FullName), StringComparer.Ordinal);
+
         int carried = 0;
+        int renamed = 0;
 
-        foreach (ZipArchiveEntry entry in existing.Entries)
+        foreach (ZipArchiveEntry entry in oldEntries)
         {
-            if (entry.Name.Length == 0)
-                continue;   // 폴더 항목
+            var fromExisting = new EntrySource(null, entry.Length, entry.LastWriteTime.DateTime, entry.FullName);
 
-            if (contents.TryGetValue(entry.FullName, out EntrySource? current) && current.Length >= entry.Length)
-                continue;   // 디스크의 원본이 같거나 더 크다
+            if (!contents.TryGetValue(entry.FullName, out EntrySource? current))
+            {
+                contents[entry.FullName] = fromExisting;
+                carried++;
+                continue;
+            }
 
-            contents[entry.FullName] = new EntrySource(FilePath: null, entry.Length);
+            if (IsSameFile(current, entry))
+            {
+                if (entry.Length > current.Length)
+                {
+                    contents[entry.FullName] = fromExisting;
+                    carried++;
+                }
+
+                continue;
+            }
+
+            string preservedName = UniqueName(DatedName(entry.FullName, entry.LastWriteTime.DateTime), contents, reservedNames);
+            contents[preservedName] = fromExisting;
+            reservedNames.Add(preservedName);
             carried++;
+            renamed++;
         }
 
-        return carried;
+        return (carried, renamed);
+    }
+
+    /// <summary>
+    /// 디스크의 파일과 압축 파일 안의 항목이 같은 파일인지. 수정한 시각으로 판단한다.
+    /// ZIP은 시각을 2초 단위로 저장하므로 2초까지의 차이는 같은 것으로 본다.
+    /// </summary>
+    private static bool IsSameFile(EntrySource onDisk, ZipArchiveEntry inZip)
+        => Math.Abs((ZipTime(onDisk.LastWriteTime) - inZip.LastWriteTime.DateTime).TotalSeconds) <= 2;
+
+    /// <summary>ZIP이 저장할 수 있는 시각 범위(1980~2107년)로 맞춘다. 범위를 벗어난 시각은 끝값으로 저장되기 때문이다.</summary>
+    private static DateTime ZipTime(DateTime time)
+    {
+        var min = new DateTime(1980, 1, 1);
+        var max = new DateTime(2107, 12, 31, 23, 59, 58);
+        return time < min ? min : time > max ? max : time;
+    }
+
+    /// <summary>logs/app.log → logs/app (2026-08-20 153012).log</summary>
+    private static string DatedName(string entryName, DateTime lastWrite)
+    {
+        int slash = entryName.LastIndexOf('/');
+        string folder = slash >= 0 ? entryName[..(slash + 1)] : "";
+        string file = slash >= 0 ? entryName[(slash + 1)..] : entryName;
+
+        string extension = Path.GetExtension(file);
+        string stem = file[..^extension.Length];
+
+        return $"{folder}{stem} ({lastWrite:yyyy-MM-dd HHmmss}){extension}";
+    }
+
+    private static string UniqueName(string candidate, Dictionary<string, EntrySource> contents, HashSet<string> reserved)
+    {
+        if (!contents.ContainsKey(candidate) && !reserved.Contains(candidate))
+            return candidate;
+
+        string extension = Path.GetExtension(candidate);
+        string stem = candidate[..^extension.Length];
+
+        for (int n = 2; ; n++)
+        {
+            string next = $"{stem} {n}{extension}";
+            if (!contents.ContainsKey(next) && !reserved.Contains(next))
+                return next;
+        }
     }
 
     // ── 쓰기와 검증 ──────────────────────────────────────
@@ -218,9 +294,9 @@ public sealed class LogArchiver
                 continue;
             }
 
-            // 기존 압축 파일에서 풀어서 새 압축 파일로 다시 담는다
-            ZipArchiveEntry oldEntry = existing!.GetEntry(entryName)
-                ?? throw new InvalidDataException($"기존 압축 파일에서 항목을 찾지 못했습니다: {entryName}");
+            // 기존 압축 파일에서 풀어서 새 압축 파일로 다시 담는다. 이름이 바뀌었을 수 있다.
+            ZipArchiveEntry oldEntry = existing!.GetEntry(source.ExistingName!)
+                ?? throw new InvalidDataException($"기존 압축 파일에서 항목을 찾지 못했습니다: {source.ExistingName}");
 
             ZipArchiveEntry newEntry = zip.CreateEntry(entryName, Level);
             newEntry.LastWriteTime = oldEntry.LastWriteTime;

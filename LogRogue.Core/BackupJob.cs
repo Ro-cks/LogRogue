@@ -1,20 +1,21 @@
 using LogRogue.Core.Archiving;
 using LogRogue.Core.Deletion;
 using LogRogue.Core.Diagnostics;
+using LogRogue.Core.Safety;
 using LogRogue.Core.Scanning;
 
 namespace LogRogue.Core;
 
 /// <summary>
 /// 백업 한 번의 전체 흐름을 실행한다.
-///   1단계 Prepare: 경로 검증 → 기간에 해당하는 날짜 폴더 찾기 → 압축 단위로 묶기 (아무것도 바꾸지 않음)
-///   2단계 Run:     묶음마다 압축 → 검증 → (선택) 그 묶음의 원본 날짜 폴더 삭제
+///   1단계 Prepare: 경로 검증 → 수정한 날짜가 기간에 드는 파일 찾기 → 압축 단위로 묶기 (아무것도 바꾸지 않음)
+///   2단계 Run:     묶음마다 압축 → 검증 → (선택) 그 묶음의 원본 파일 삭제
 /// 두 단계 사이에 사용자에게 대상을 보여주고 확인받을 수 있다.
 /// UI와 무관하게 동작하므로 나중에 스케줄러나 명령줄 실행에서도 그대로 쓸 수 있다.
 /// </summary>
 public sealed class BackupJob
 {
-    private readonly FolderScanner _scanner = new();
+    private readonly FileScanner _scanner = new();
     private readonly LogArchiver _archiver = new();
     private readonly SourceDeleter _deleter = new();
     private readonly IAppLog _log;
@@ -34,6 +35,7 @@ public sealed class BackupJob
         DateOnly? today = null)
     {
         LogArchiver.ValidatePaths(sourceRoot, outputDirectory);
+        SourceRootGuard.EnsureSafe(sourceRoot);
 
         string fullSource = Path.GetFullPath(sourceRoot);
         string fullOutput = Path.GetFullPath(outputDirectory);
@@ -42,7 +44,7 @@ public sealed class BackupJob
         // 예약 실행에서도 같은 설정으로 매번 알맞은 날짜 범위가 나온다.
         (DateOnly start, DateOnly end) = period.Resolve(today);
 
-        IReadOnlyList<LogDayFolder> days = _scanner.Scan(fullSource, start, end, today);
+        IReadOnlyList<LogDay> days = _scanner.Scan(fullSource, start, end, today);
 
         return new BackupPlan
         {
@@ -84,6 +86,7 @@ public sealed class BackupJob
                     $"압축 완료 {group.FileName}: {group.Days.Count}일 {group.FileCount}개 파일 · " +
                     $"{ByteSize.ToDisplay(group.TotalBytes)} → {ByteSize.ToDisplay(archive.ArchiveBytes)}" +
                     (archive.CarriedOverEntries > 0 ? $" · 기존 항목 {archive.CarriedOverEntries}개 합침" : "") +
+                    (archive.RenamedEntries > 0 ? $" · 이름이 같은 다른 파일 {archive.RenamedEntries}개 보존" : "") +
                     (archive.SavedSeparately ? $" · 기존 파일을 읽지 못해 {Path.GetFileName(archive.ArchivePath)}(으)로 저장" : ""));
             }
             else
@@ -94,13 +97,13 @@ public sealed class BackupJob
             var deletions = new List<DayDeletion>();
             if (deleteMode != DeleteMode.None && archive.Succeeded)
             {
-                foreach (LogDayFolder day in group.Days)
+                foreach (LogDay day in group.Days)
                 {
                     DeletionResult deletion = _deleter.Delete(day, archive, plan.SourceRoot, deleteMode);
                     deletions.Add(new DayDeletion(day, deletion));
 
                     if (!deletion.Succeeded)
-                        _log.Warn($"원본 삭제 실패 {day.Date:yyyy-MM-dd}: {deletion.Error}");
+                        _log.Warn($"원본 일부 남김 {day.Date:yyyy-MM-dd} (삭제 {deletion.DeletedFiles}개): {deletion.Error}");
                 }
             }
 
@@ -110,10 +113,11 @@ public sealed class BackupJob
             progress?.Report(new BackupProgress(i + 1, plan.Groups.Count, group, result));
         }
 
-        int deleted = results.Sum(r => r.DeletedDays);
         _log.Info(
             $"백업 종료: 압축 성공 {results.Count(r => r.Archive.Succeeded)}개 / 실패 {results.Count(r => !r.Archive.Succeeded)}개" +
-            (deleteMode != DeleteMode.None ? $" · 원본 삭제 {deleted}일" : ""));
+            (deleteMode != DeleteMode.None
+                ? $" · 원본 삭제 {results.Sum(r => r.DeletedFiles)}개 파일 ({ByteSize.ToDisplay(results.Sum(r => r.DeletedBytes))})"
+                : ""));
 
         return results;
     }

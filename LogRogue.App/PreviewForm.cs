@@ -67,13 +67,11 @@ public sealed class PreviewForm : Form
 
     private static Label CreateSummary(BackupPlan plan, int existingCount)
     {
-        IReadOnlyList<LogDayFolder> days = plan.Days;
-        int totalFiles = days.Sum(t => t.FileCount);
-        long totalBytes = days.Sum(t => t.TotalBytes);
+        IReadOnlyList<LogDay> days = plan.Days;
 
         string text =
             $"{days[0].Date:yyyy-MM-dd} ~ {days[^1].Date:yyyy-MM-dd}  ·  " +
-            $"{days.Count}일  ·  파일 {totalFiles}개  ·  {ByteSize.ToDisplay(totalBytes)}\n" +
+            $"{days.Count}일  ·  파일 {plan.FileCount}개  ·  {ByteSize.ToDisplay(plan.TotalBytes)}  (파일의 수정한 날짜 기준)\n" +
             $"압축 단위: {GroupingText(plan.Grouping)}  →  압축 파일 {plan.Groups.Count}개\n" +
             $"저장 위치: {plan.OutputDirectory}";
 
